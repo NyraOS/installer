@@ -47,8 +47,22 @@ fn cases() -> Vec<Case> {
             0,
             nothing,
         ),
+        c("busy", "busy", Screen::Busy, 0, nothing),
+        c(
+            "fail-no-disk",
+            "no-disk",
+            Screen::Fail(Failure::NoDisk),
+            0,
+            nothing,
+        ),
         c("release", "ok", Screen::Release, 0, nothing),
         c("disk", "ok", Screen::Disk, 0, nothing),
+        // Two disks the script could not tell apart are listed, and not available.
+        c("disk-twin", "ok", Screen::Disk, 0, |s, _| {
+            if let Some(m) = s.machine.as_mut() {
+                m.disks[2].reason = Some(nyra_installer::backend::Reason::Twin);
+            }
+        }),
         c("encryption-tpm", "ok", Screen::Encryption, 0, nothing),
         c(
             "encryption-password",

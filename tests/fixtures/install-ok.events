@@ -1,0 +1,16 @@
+{"event":"step","id":"verify","state":"start"}
+{"event":"step","id":"verify","state":"done"}
+{"event":"step","id":"prepare","state":"start"}
+{"event":"disk-changed"}
+{"event":"step","id":"prepare","state":"done"}
+{"event":"step","id":"install","state":"start"}
+{"event":"step","id":"install","state":"done"}
+{"event":"step","id":"protect","state":"start"}
+{"event":"handoff","id":"recovery-key"}
+{"event":"handoff-end"}
+{"event":"step","id":"protect","state":"done"}
+{"event":"step","id":"final","state":"start"}
+{"event":"handoff","id":"mok-password"}
+{"event":"handoff-end"}
+{"event":"step","id":"final","state":"done"}
+{"event":"done"}

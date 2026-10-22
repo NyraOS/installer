@@ -1,0 +1,15 @@
+[
+  {
+    "name": "vda",
+    "path": "/dev/vda",
+    "bytes": 64000000000,
+    "model": "QEMU HARDDISK",
+    "serial": null,
+    "wwn": null,
+    "ptuuid": null,
+    "removable": false,
+    "parts": [],
+    "eligible": true,
+    "reason": null
+  }
+]

@@ -1,0 +1,15 @@
+Nyra OS installer                              No disk found
+Check that the disk is connected.                           
+Nothing on your disks was changed.                          
+> Restart                                                   
+  Back to the menu                                          
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+Enter: restart · d details                                  

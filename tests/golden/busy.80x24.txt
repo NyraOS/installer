@@ -1,0 +1,24 @@
+Nyra OS installer                                                           Busy
+                                                                                
+  The installation is running on another screen.                                
+                                                                                
+  Only one screen can install at a time. When the other one is done or has      
+  stopped, this one goes back to the menu.                                      
+                                                                                
+  > Back to the menu                                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Up/Down choose · Enter select · ? help                                          

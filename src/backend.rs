@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! What the installer knows about the machine and what the install script reports, plus a scripted
-//! stand-in for the script ([`Fake`]). The real backend replaces the fake one; the types stay.
+//! What the installer knows about the machine and what the install script reports, the
+//! [`Backend`] it talks to, and a scripted stand-in for the script ([`Fake`]). The real backend is
+//! in `script.rs`; the screens and the state machine never know which one they have.
 
+use rustix::fd::BorrowedFd;
 use std::collections::VecDeque;
+use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -41,6 +44,7 @@ pub struct Release {
 /// The result of `check` plus the list from `disks`.
 #[derive(Clone, Debug)]
 pub struct Machine {
+    pub arch: Arch,
     pub uefi: bool,
     pub secure_boot: bool,
     /// The shim checks (MokSBState) are on.
@@ -68,10 +72,14 @@ pub enum Reason {
     Booted,
     InUse,
     ReadOnly,
-    TooSmall { min_gb: u32 },
+    TooSmall {
+        min_gb: u32,
+    },
+    /// Another disk is exactly like it, so the script could not tell them apart.
+    Twin,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Part {
     pub label: String,
     pub fs: String,
@@ -86,6 +94,10 @@ pub struct Disk {
     pub path: String,
     pub bytes: u64,
     pub model: String,
+    /// What says which disk it is, besides the model and the size: null for some virtual disks.
+    pub serial: Option<String>,
+    pub wwn: Option<String>,
+    pub ptuuid: Option<String>,
     pub parts: Vec<Part>,
     pub eligible: bool,
     pub reason: Option<Reason>,
@@ -119,8 +131,9 @@ pub enum Unlock {
     Password,
 }
 
-/// A secret that is wiped when dropped. It never prints. The buffer is allocated once at full
-/// size, so typing never leaves copies behind in freed memory.
+/// A secret that is wiped when dropped. It never prints: it has no `Debug` and no `Display`, and
+/// neither does anything that holds one. The buffer is allocated once at full size, so typing never
+/// leaves copies behind in freed memory.
 pub struct Secret(String);
 
 pub const FIELD_CAPACITY: usize = 512;
@@ -167,14 +180,7 @@ impl Drop for Secret {
     }
 }
 
-impl std::fmt::Debug for Secret {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Secret(..)")
-    }
-}
-
-/// What the backend needs to start: sent once, then wiped.
-#[derive(Debug)]
+/// What the backend needs to start: sent once, then wiped. No `Debug`: it holds passwords.
 pub struct Answers {
     pub device: String,
     /// What the user typed, put after `/dev/`.
@@ -243,6 +249,44 @@ pub enum BackendEvent {
 }
 
 // ---------------------------------------------------------------------------------------------
+// What the installer needs from a backend.
+
+/// `check` or `disks` gave nothing the installer can use; [`Backend::log`] says why.
+#[derive(Debug)]
+pub struct Unusable;
+
+/// The install script, or a stand-in for it. Everything is non-blocking except [`Backend::load`].
+pub trait Backend {
+    fn info(&self) -> &Info;
+    /// Runs `check` and `disks`. The error is why they could not be used; the same lines are in
+    /// [`Backend::log`].
+    fn load(&mut self) -> Result<Machine, Unusable>;
+    /// Takes the right to install. `false` if another installer on this machine has it.
+    fn lock(&mut self) -> bool;
+    fn unlock(&mut self);
+    /// Whether [`Backend::lock`] would succeed now.
+    fn lock_is_free(&mut self) -> bool;
+    /// Starts the installation and sends the answers once. Failures are events.
+    fn start_install(&mut self, answers: Answers);
+    /// Starts “register the Secure Boot key again”.
+    fn start_mok(&mut self);
+    /// The terminal is the script’s: it may go on.
+    fn go(&mut self);
+    /// Stops an installation that has not changed the disk.
+    fn cancel(&mut self);
+    /// The installer no longer believes the script: it is told to stop, whatever it is doing.
+    fn stop(&mut self);
+    /// An event that is ready now.
+    fn ready(&mut self) -> Option<BackendEvent>;
+    /// A descriptor that becomes readable when an event may be ready.
+    fn waiting_on(&self) -> Option<BorrowedFd<'_>>;
+    /// When the next event is due, for a backend that runs on a clock.
+    fn next_due(&mut self) -> Option<Instant>;
+    /// The last lines of the log, for the details of an error.
+    fn log(&self) -> Vec<String>;
+}
+
+// ---------------------------------------------------------------------------------------------
 // The scripted stand-in.
 
 pub const SCENARIOS: &[&str] = &[
@@ -260,6 +304,7 @@ pub const SCENARIOS: &[&str] = &[
     "protect-fail",
     "mok-fail",
     "die",
+    "busy",
 ];
 
 pub struct Fake {
@@ -268,6 +313,9 @@ pub struct Fake {
     outcome: &'static str,
     script: VecDeque<(u64, BackendEvent)>,
     blocked: bool,
+    due: Option<Instant>,
+    /// Another screen is installing.
+    pub busy: bool,
     pub log: Vec<String>,
 }
 
@@ -289,6 +337,9 @@ fn disk(name: &str, gb: u64, model: &str, parts: &[(&str, &str, u64, bool)]) -> 
         eligible: true,
         reason: None,
         removable: false,
+        serial: Some(format!("SN-{name}")),
+        wwn: None,
+        ptuuid: None,
     }
 }
 
@@ -319,6 +370,7 @@ impl Fake {
         usb.reason = Some(Reason::Booted);
         usb.removable = true;
         let mut machine = Machine {
+            arch: if arm { Arch::Aarch64 } else { Arch::X86_64 },
             uefi: *name != "bios",
             secure_boot: *name != "secure-boot-off",
             shim_checks: *name != "shim-checks-off",
@@ -371,6 +423,8 @@ impl Fake {
             outcome,
             script: VecDeque::new(),
             blocked: false,
+            due: None,
+            busy: *name == "busy",
             log: Vec::new(),
         })
     }
@@ -382,6 +436,7 @@ impl Fake {
         let s = &mut self.script;
         s.clear();
         self.blocked = false;
+        self.due = None;
         let fail = |id, disk_changed| (300, Fail { id, disk_changed });
         s.push_back((300, Start(Verify)));
         match self.outcome {
@@ -427,15 +482,17 @@ impl Fake {
         use BackendEvent::*;
         self.script.clear();
         self.blocked = false;
+        self.due = None;
         self.script
             .push_back((300, HandoffStart(Handoff::MokPassword)));
         self.script.push_back((0, HandoffEnd));
         if self.outcome == "mok-fail" {
+            // As the script does: this flow never writes to a disk.
             self.script.push_back((
                 300,
                 Fail {
                     id: FailId::Mok,
-                    disk_changed: true,
+                    disk_changed: false,
                 },
             ));
         } else {
@@ -451,6 +508,7 @@ impl Fake {
     /// Stops an installation that has not changed the disk.
     pub fn cancel(&mut self) {
         self.script.clear();
+        self.due = None;
         self.script.push_back((
             100,
             BackendEvent::Fail {
@@ -467,6 +525,7 @@ impl Fake {
         }
         let (d, e) = self.script.pop_front()?;
         self.blocked = matches!(e, BackendEvent::HandoffStart(_));
+        self.due = None;
         Some((d, e))
     }
 
@@ -475,6 +534,62 @@ impl Fake {
             "scripted backend: no install script is running".to_string(),
             format!("scenario outcome: {}", self.outcome),
         ]
+    }
+}
+
+impl Backend for Fake {
+    fn info(&self) -> &Info {
+        &self.info
+    }
+    fn load(&mut self) -> Result<Machine, Unusable> {
+        Ok(self.machine.clone())
+    }
+    fn lock(&mut self) -> bool {
+        !self.busy
+    }
+    fn unlock(&mut self) {}
+    fn lock_is_free(&mut self) -> bool {
+        !self.busy
+    }
+    fn start_install(&mut self, _answers: Answers) {
+        // The answers are dropped, and wiped, here: the scripted backend needs none.
+        Fake::start_install(self);
+    }
+    fn start_mok(&mut self) {
+        Fake::start_mok(self);
+        // The handoff event itself; the user already chose.
+        let _ = self.next_event();
+    }
+    fn go(&mut self) {
+        Fake::go(self);
+    }
+    fn cancel(&mut self) {
+        Fake::cancel(self);
+    }
+    fn stop(&mut self) {
+        self.script.clear();
+    }
+    fn ready(&mut self) -> Option<BackendEvent> {
+        if self.due? > Instant::now() {
+            return None;
+        }
+        self.next_event().map(|(_, e)| e)
+    }
+    fn waiting_on(&self) -> Option<BorrowedFd<'_>> {
+        None
+    }
+    fn next_due(&mut self) -> Option<Instant> {
+        if self.blocked {
+            return None;
+        }
+        if self.due.is_none() {
+            let (ms, _) = self.script.front()?;
+            self.due = Some(Instant::now() + Duration::from_millis(*ms));
+        }
+        self.due
+    }
+    fn log(&self) -> Vec<String> {
+        self.log.clone()
     }
 }
 

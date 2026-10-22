@@ -285,6 +285,7 @@ pub fn page(s: &State) -> Page {
     let c = s.compact();
     match s.screen {
         Screen::Menu => menu(s, c),
+        Screen::Busy => busy(s, c),
         Screen::Computer => computer(s, c),
         Screen::Fail(f) => fail(s, f, c),
         Screen::Release => release(s, c),
@@ -408,6 +409,24 @@ fn computer(s: &State, c: bool) -> Page {
     b.item(2, t::B_CONTINUE, Style::NONE);
     b.item(2, t::B_RESTART, Style::NONE);
     b.finish(title, footers, false, false)
+}
+
+fn busy(s: &State, c: bool) -> Page {
+    let mut b = B::new(s);
+    let titles = [t::BUSY_T.to_string(), t::BUSY_T.to_string()];
+    let footers = [t::F_MENU, t::F_MENU_S, t::F_MENU_S];
+    if c {
+        b.line(0, t::BUSY_S, Style::NONE);
+        b.item(0, t::B_BACK_TO_MENU, Style::NONE);
+        return b.finish(titles, footers, true, false);
+    }
+    b.blank();
+    b.para(2, t::BUSY, Style::BOLD);
+    b.blank();
+    b.para(2, t::BUSY_WHY, Style::NONE);
+    b.blank();
+    b.item(2, t::B_BACK_TO_MENU, Style::NONE);
+    b.finish(titles, footers, true, false)
 }
 
 fn fail(s: &State, f: Failure, c: bool) -> Page {

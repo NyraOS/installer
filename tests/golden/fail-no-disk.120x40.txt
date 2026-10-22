@@ -1,0 +1,40 @@
+Nyra OS installer                                                                                 1 of 8 · This computer
+                                                                                                                        
+  No disk found to install on.                                                                                          
+                                                                                                                        
+  The installer sees no disk it can use. The disk you started from can’t be                                             
+  used. Neither can disks that look exactly alike: the installer can’t tell                                             
+  them apart.                                                                                                           
+                                                                                                                        
+  What you can do: check that the disk is connected, then restart. If two                                               
+  disks look alike, disconnect one of them.                                                                             
+                                                                                                                        
+  Nothing on your disks was changed.                                                                                    
+                                                                                                                        
+  > Restart                                                                                                             
+    Back to the menu                                                                                                    
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+Up/Down choose · Enter select · d details · ? help                                                                      

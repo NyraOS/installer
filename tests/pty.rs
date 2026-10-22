@@ -119,3 +119,33 @@ fn pasted_burst() {
 fn core_dumps_off() {
     run("core_dumps_off");
 }
+
+#[test]
+fn script_install() {
+    run("script_install");
+}
+
+#[test]
+fn script_failures() {
+    run("script_failures");
+}
+
+#[test]
+fn script_check_fails() {
+    run("script_check_fails");
+}
+
+#[test]
+fn script_busy() {
+    run("script_busy");
+}
+
+#[test]
+fn script_not_found() {
+    run("script_not_found");
+}
+
+#[test]
+fn script_shell() {
+    run("script_shell");
+}

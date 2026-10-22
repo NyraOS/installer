@@ -80,14 +80,23 @@ class Screen:
 
 
 class Session:
-    def __init__(self, binary, scenario, w=80, h=24, env=None, size_report=None, screen=None):
+    def __init__(self, binary, scenario, w=80, h=24, env=None, size_report=None, screen=None, args=None, ctty=False):
         self.master, slave = os.openpty()
         self.set_size(w, h, fd=slave)
         e = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "TERM": "linux", "LANG": "C.UTF-8"}
         e.update(env or {})
         e = {k: v for k, v in e.items() if v is not None}
-        self.proc = subprocess.Popen([binary, "--fake", scenario], stdin=slave, stdout=slave, stderr=slave,
-                                     env=e, start_new_session=True, close_fds=True)
+        argv = [binary] + (args if args is not None else ["--fake", scenario])
+        if ctty:
+            # The terminal is the process's own, as on a console: a script can open /dev/tty.
+            def own_terminal():
+                os.setsid()
+                fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+            self.proc = subprocess.Popen(argv, stdin=slave, stdout=slave, stderr=slave, env=e,
+                                         preexec_fn=own_terminal, close_fds=True)
+        else:
+            self.proc = subprocess.Popen(argv, stdin=slave, stdout=slave, stderr=slave,
+                                         env=e, start_new_session=True, close_fds=True)
         os.close(slave)
         self.screen = Screen(*(screen or (w, h)))
         self.raw = b""
@@ -183,8 +192,11 @@ def to_review(s, password=False):
     s.wait_for("Ready to install")
 
 
-def start(s):
-    s.keys("sda", ENTER, ENTER)
+def start(s, disk="sda"):
+    # The button that erases ignores Enter for a moment after it is reached.
+    s.keys(disk, ENTER)
+    time.sleep(0.7)
+    s.keys(ENTER)
 
 
 def test_full_install(binary, golden):
@@ -465,8 +477,14 @@ def test_pasted_burst(binary, golden):
         # The name and two Enter in one write: the button gets the focus, and that is all.
         s.send("sda\r\r")
         s.wait_for("> Erase sda and install")
-        s.settle(0.5)
+        s.settle(0.2)
         assert "Installing Nyra OS" not in s.screen.text(), s.screen.text()
+        # Another Enter soon after, in a piece of its own (a slow line): still not for the button.
+        s.send("\r")
+        s.settle(0.1)
+        assert "Installing Nyra OS" not in s.screen.text(), s.screen.text()
+        # Later, a key of the person's own presses it.
+        time.sleep(0.7)
         s.keys(ENTER)
         s.wait_for("Installing Nyra OS")
     finally:
@@ -487,8 +505,213 @@ def test_core_dumps_off(binary, golden):
 def test_not_a_terminal(binary, golden):
     r = subprocess.run([binary, "--fake", "ok"], stdin=subprocess.DEVNULL, capture_output=True, text=True)
     assert r.returncode == 1 and "needs a terminal" in r.stderr, (r.returncode, r.stderr)
-    r = subprocess.run([binary], stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    r = subprocess.run([binary, "--nonsense"], stdin=subprocess.DEVNULL, capture_output=True, text=True)
     assert r.returncode == 2 and "Scenarios:" in r.stderr
+    # Without arguments it is the real installer, which also needs a terminal.
+    r = subprocess.run([binary, "--script", "/nonexistent"], stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    assert r.returncode == 1 and "needs a terminal" in r.stderr, (r.returncode, r.stderr)
+
+
+# ---------------------------------------------------------------------------------------------
+# The real backend, against a stand-in for the install script that uses the terminal as the real one
+# does at a handoff.
+
+KEY = "abcd-efgh-ijkl-mnop"
+MOK = "mok-password-1"
+
+
+class Stub:
+    """A directory for the stand-in script to leave what it saw, and a `systemctl` that only writes down."""
+
+    def __init__(self, golden, scenario, tty=True):
+        import tempfile
+        self.dir = tempfile.mkdtemp(prefix="nyra-pty-")
+        os.mkdir(os.path.join(self.dir, "bin"))
+        with open(os.path.join(self.dir, "bin", "systemctl"), "w") as f:
+            f.write('#!/bin/sh\necho "$@" >> "%s/systemctl.log"\n' % self.dir)
+        os.chmod(os.path.join(self.dir, "bin", "systemctl"), 0o755)
+        # The installer gives the script a clean environment: what it needs is in a file next to it.
+        import shutil
+        src = os.path.abspath(os.path.join(golden, "..", "stub", "nyra-install.sh"))
+        self.script = os.path.join(self.dir, "nyra-install.sh")
+        shutil.copy(src, self.script)
+        conf = {"STUB": scenario, "STUB_DIR": self.dir, "STUB_TTY": "1" if tty else "0", "STUB_KEY": KEY,
+                "STUB_AFTER": "0.3", "STUB_FX": os.path.abspath(os.path.join(golden, "..", "fixtures"))}
+        with open(os.path.join(self.dir, "stub.conf"), "w") as f:
+            for k, v in conf.items():
+                f.write("%s='%s'\n" % (k, v))
+        self.env = {}
+
+    def session(self, binary, **kw):
+        args = ["--script", self.script, "--lock", os.path.join(self.dir, "lock"),
+                "--systemctl", os.path.join(self.dir, "bin", "systemctl")]
+        return Session(binary, None, args=args, env=self.env, ctty=True, **kw)
+
+    def read(self, name):
+        try:
+            with open(os.path.join(self.dir, name)) as f:
+                return f.read()
+        except OSError:
+            return ""
+
+    def wait_file(self, name, timeout=5):
+        end = time.time() + timeout
+        while time.time() < end:
+            if self.read(name):
+                return self.read(name)
+            time.sleep(0.05)
+        raise AssertionError("no file " + name)
+
+    def remove(self):
+        import shutil
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+
+def test_script_install(binary, golden):
+    stub = Stub(golden, "ok")
+    s = stub.session(binary)
+    try:
+        to_review(s)
+        start(s, "vda")
+        s.wait_for("Your recovery key", 15)
+        # Pressed on the explanation, the key is shown by the script, on the terminal, and typed back.
+        s.keys(ENTER)
+        s.wait_for("RECOVERY KEY: " + KEY)
+        assert "Welcome" not in s.screen.text() and "Installing Nyra OS" not in s.screen.text()
+        # A Ctrl-C, Ctrl-Z and Ctrl-\\ here are not signals: they would stop the installer as well. They are
+        # characters of the line, which the person erases.
+        s.keys("\x03", "\x1a", "\x1c", "\x7f\x7f\x7f")
+        time.sleep(0.2)
+        assert s.proc.poll() is None
+        # The line, and Enters that nobody asked for: the script reads the line, and the Enters wait in
+        # the terminal until the installer has it back. It must not take them for its own keys.
+        s.send(KEY + "\r\r\r\r")
+        s.wait_for("Register the Secure Boot key", 15)
+        s.settle(0.5)
+        assert "MOK PASSWORD" not in s.screen.text(), s.screen.text()
+        assert stub.read("typed").strip() == KEY
+        # The same for the password of the Secure Boot key. The Done screen has a button that restarts.
+        s.keys(ENTER)
+        s.wait_for("MOK PASSWORD:")
+        s.send(MOK + "\r\r\r\r")
+        s.wait_for("Nyra OS is installed", 15)
+        s.settle(0.6)
+        assert s.proc.poll() is None, "the installer left: a key reached it"
+        assert not stub.read("systemctl.log")
+        assert stub.read("typed-mok").strip() == MOK
+        # Nothing secret on the screen, or sent to it by the installer.
+        for secret in (KEY, MOK, PW):
+            assert secret not in s.screen.text()
+        answers = stub.read("answers")
+        assert '"admin_name":"maria"' in answers and PW in answers and '"confirm":"/dev/vda"' in answers
+        assert PW.encode() not in s.raw
+        # Restart now.
+        s.keys(ENTER)
+        assert stub.wait_file("systemctl.log").strip() == "reboot"
+    finally:
+        s.close()
+        stub.remove()
+
+
+def test_script_failures(binary, golden):
+    for scenario, title, disk in [
+        ("fail-before", "The Nyra OS image didn’t pass the check.", "Nothing on your disks was changed."),
+        ("fail-after", "Could not write to the disk.", "The disk vda was changed"),
+        ("die", "The installation stopped unexpectedly.", "may have been changed"),
+        ("huge-line", "The installation stopped unexpectedly.", "may have been changed"),
+        ("flood", "The installation stopped unexpectedly.", "may have been changed"),
+        ("mok-fails", "The Secure Boot key couldn’t be registered.", "won’t start until the key is registered"),
+    ]:
+        stub = Stub(golden, scenario)
+        s = stub.session(binary)
+        try:
+            to_review(s)
+            start(s, "vda")
+            if scenario == "mok-fails":
+                s.wait_for("Your recovery key", 15)
+                s.keys(ENTER)
+                s.wait_for("RECOVERY KEY: " + KEY)
+                s.send(KEY + "\r")
+                s.wait_for("Register the Secure Boot key", 15)
+                s.keys(ENTER)
+                s.wait_for("MOK PASSWORD:")
+                s.send(MOK + "\r")
+            s.wait_for(title, 15)
+            s.wait_for(disk, 2)
+            # The terminal is the installer's again after a failure.
+            s.keys("d")
+            s.wait_for("Details")
+        finally:
+            s.close()
+            stub.remove()
+
+
+def test_script_check_fails(binary, golden):
+    stub = Stub(golden, "check-fails")
+    s = stub.session(binary)
+    try:
+        s.wait_for("Welcome to Nyra OS.")
+        s.keys(ENTER)
+        s.wait_for("The Nyra OS image didn’t pass the check.")
+        s.wait_for("Nothing on your disks was changed.")
+        s.keys("d")
+        s.wait_for("not the release it says")
+    finally:
+        s.close()
+        stub.remove()
+
+
+def test_script_busy(binary, golden):
+    stub = Stub(golden, "ok")
+    one = stub.session(binary)
+    two = stub.session(binary)
+    try:
+        one.wait_for("Welcome to Nyra OS.")
+        two.wait_for("Welcome to Nyra OS.")
+        one.keys(ENTER)
+        one.wait_for("Checking this computer")
+        two.keys(ENTER)
+        two.wait_for("The installation is running on another screen.")
+        one.keys(ESC)
+        one.wait_for("Welcome to Nyra OS.")
+        # The second goes back to its menu within a second or two.
+        two.wait_for("Welcome to Nyra OS.", 5)
+    finally:
+        one.close()
+        two.close()
+        stub.remove()
+
+
+def test_script_shell(binary, golden):
+    # “Open a shell” is a root shell on this terminal, with a warning; `exit` comes back.
+    stub = Stub(golden, "ok")
+    s = stub.session(binary)
+    try:
+        s.wait_for("Welcome to Nyra OS.")
+        s.keys(DOWN, DOWN, ENTER)
+        s.wait_for("This is a temporary system in memory.")
+        s.keys("echo hi-$((6*7))\r")
+        s.wait_for("hi-42")
+        s.keys("exit\r")
+        s.wait_for("Welcome to Nyra OS.", 5)
+    finally:
+        s.close()
+        stub.remove()
+
+
+def test_script_not_found(binary, golden):
+    # No script at all: the menu comes up with an unknown version, and the check says it failed.
+    stub = Stub(golden, "ok")
+    s = Session(binary, None, args=["--script", "/nonexistent/nyra-install.sh", "--lock",
+                                     os.path.join(stub.dir, "lock")], env=stub.env, ctty=True)
+    try:
+        s.wait_for("Welcome to Nyra OS.")
+        s.wait_for("Version unknown")
+        s.keys(ENTER)
+        s.wait_for("The Nyra OS image didn’t pass the check.")
+    finally:
+        s.close()
+        stub.remove()
 
 
 if __name__ == "__main__":

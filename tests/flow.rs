@@ -2,7 +2,7 @@
 
 //! The state machine, screen by screen, against the scripted backend.
 
-use nyra_installer::app::{App, Outer};
+use nyra_installer::app::{App, Outer, ERASE_PAUSE};
 use nyra_installer::backend::{BackendEvent, FailId, Fake, Handoff, Step, Unlock};
 use nyra_installer::rules::Problem;
 use nyra_installer::screens::{frame, page};
@@ -10,6 +10,7 @@ use nyra_installer::state::{
     items, Btn, DiskState, ErrKind, Event, Failure, Fld, Item, Overlay, Screen,
 };
 use nyra_installer::term::Key;
+use std::time::{Duration, Instant};
 
 fn app(scenario: &str, w: usize, h: usize) -> App {
     App::new(Fake::new(scenario).unwrap(), w, h)
@@ -798,8 +799,33 @@ fn a_pasted_burst_does_not_start_the_erase() {
     assert!(o.is_empty());
     assert_eq!(a.state.screen, Screen::Review);
     assert_eq!(items(&a.state)[a.state.focus].item, Item::Btn(Btn::Erase));
+    // The button was just reached: an Enter that comes at once is not for it, wherever it came
+    // from (a paste that arrives in pieces, say).
+    let t0 = Instant::now();
+    let mut a2 = app("ok", 80, 24);
+    to_review(&mut a2, false);
+    a2.dispatch_batch_at(keys("sda\r"), t0);
+    assert_eq!(items(&a2.state)[a2.state.focus].item, Item::Btn(Btn::Erase));
+    assert!(a2
+        .dispatch_batch_at(keys("\r"), t0 + Duration::from_millis(100))
+        .is_empty());
+    assert_eq!(a2.state.screen, Screen::Review);
+    // The person has seen the button; a key of their own presses it.
+    assert_eq!(
+        a2.dispatch_batch_at(keys("\r"), t0 + ERASE_PAUSE + Duration::from_millis(1)),
+        [Outer::Started]
+    );
+    // Moving away and back starts the pause again.
+    let mut a2 = app("ok", 80, 24);
+    to_review(&mut a2, false);
+    a2.dispatch_batch_at(keys("sda\r"), t0);
+    a2.dispatch_batch_at(vec![Event::Key(Key::Up)], t0 + Duration::from_secs(1));
+    a2.dispatch_batch_at(vec![Event::Key(Key::Down)], t0 + Duration::from_secs(2));
+    let soon = t0 + Duration::from_secs(2) + Duration::from_millis(100);
+    assert!(a2.dispatch_batch_at(keys("\r"), soon).is_empty());
     // The user has seen the button; a key of its own presses it.
-    assert_eq!(a.dispatch_batch(keys("\r")), [Outer::Started]);
+    let later = Instant::now() + Duration::from_secs(5);
+    assert_eq!(a.dispatch_batch_at(keys("\r"), later), [Outer::Started]);
 
     // In the same read as the step that leads to the review screen.
     let mut a = app("ok", 80, 24);
@@ -1022,4 +1048,87 @@ fn the_erase_button_looks_different_when_it_is_off() {
     );
     let f = frame(&a.state);
     assert_eq!(f.grid.cells[r * 80 + 6].style, Style::RED.with(Style::BOLD));
+}
+
+#[test]
+fn another_screen_that_is_installing_is_told_and_waited_for() {
+    let mut a = app("busy", 80, 24);
+    // The menu’s first choice: the right to install is not free.
+    press(&mut a, &[Key::Enter]);
+    assert_eq!(a.state.screen, Screen::Busy);
+    assert_eq!(items(&a.state).len(), 1);
+    // “Register the key again” is an installation too.
+    press(&mut a, &[Key::Enter]);
+    assert_eq!(a.state.screen, Screen::Menu);
+    press(&mut a, &[Key::Down, Key::Enter]);
+    assert_eq!(a.state.screen, Screen::Busy);
+    // Esc goes back; so does the other screen being done.
+    press(&mut a, &[Key::Esc]);
+    assert_eq!(a.state.screen, Screen::Menu);
+    press(&mut a, &[Key::Enter]);
+    a.backend.busy = false;
+    a.poll_lock();
+    assert_eq!(a.state.screen, Screen::Menu);
+    // Nothing happens to a screen that is not waiting.
+    press(&mut a, &[Key::Enter]);
+    assert_eq!(a.state.screen, Screen::Computer);
+    a.poll_lock();
+    assert_eq!(a.state.screen, Screen::Computer);
+}
+
+#[test]
+fn a_check_that_cannot_be_used_stops_before_anything_else() {
+    let mut a = app("ok", 80, 24);
+    press(&mut a, &[Key::Enter]);
+    a.dispatch(Event::CheckFailed);
+    assert_eq!(
+        a.state.screen,
+        Screen::Error(ErrKind::Check, DiskState::Unchanged)
+    );
+    assert!(a.state.machine.is_none());
+    // The only ways on are a restart and a shell: nothing can be installed from here.
+    let list: Vec<_> = items(&a.state).iter().map(|s| s.item).collect();
+    assert_eq!(list, [Item::Btn(Btn::Restart), Item::Btn(Btn::Shell)]);
+}
+
+#[test]
+fn the_terminal_is_emptied_when_the_script_changes_the_screen() {
+    let mut a = app("ok", 80, 24);
+    to_review(&mut a, false);
+    erase(&mut a);
+    // The script moves the screen on: what was typed meanwhile was for the screen before.
+    for e in [
+        BackendEvent::Start(Step::Verify),
+        BackendEvent::Done(Step::Verify),
+        BackendEvent::Start(Step::Prepare),
+        BackendEvent::DiskChanged,
+        BackendEvent::Done(Step::Prepare),
+        BackendEvent::Start(Step::Install),
+        BackendEvent::Done(Step::Install),
+        BackendEvent::Start(Step::Protect),
+    ] {
+        assert!(a.dispatch(Event::Backend(e)).is_empty(), "{e:?}");
+    }
+    let o = a.dispatch(Event::Backend(BackendEvent::HandoffStart(
+        Handoff::RecoveryKey,
+    )));
+    assert_eq!(o, [Outer::Flush]);
+    assert_eq!(a.state.screen, Screen::RecoveryKey);
+    // A key does not flush; the script’s next event may.
+    assert!(a.dispatch(Event::Key(Key::Down)).is_empty());
+    let o = a.dispatch(Event::Backend(BackendEvent::Died));
+    assert_eq!(o, [Outer::Flush]);
+}
+
+#[test]
+fn the_script_is_stopped_when_it_is_not_believed() {
+    // An event out of order ends the installation on screen; the script is told to stop.
+    let mut a = app("ok", 80, 24);
+    to_review(&mut a, false);
+    erase(&mut a);
+    a.dispatch(Event::Backend(BackendEvent::Done(Step::Install)));
+    assert_eq!(
+        a.state.screen,
+        Screen::Error(ErrKind::Stopped, DiskState::Maybe)
+    );
 }
