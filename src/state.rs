@@ -430,7 +430,12 @@ fn goto(s: &mut State, screen: Screen) {
     s.problem = None;
     s.show = false;
     s.focus = match screen {
-        Screen::Encryption if !s.tpm() => 1,
+        // Back from the password screen keeps what was chosen; otherwise the first choice that works.
+        Screen::Encryption => items(s)
+            .iter()
+            .position(|x| x.enabled && x.item == Item::Choice(s.unlock))
+            .or_else(|| items(s).iter().position(|x| x.enabled))
+            .unwrap_or(0),
         Screen::Disk => {
             let list = items(s);
             list.iter()

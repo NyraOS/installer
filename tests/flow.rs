@@ -3,7 +3,7 @@
 //! The state machine, screen by screen, against the scripted backend.
 
 use nyra_installer::app::{App, Outer};
-use nyra_installer::backend::{BackendEvent, FailId, Fake, Handoff, Step};
+use nyra_installer::backend::{BackendEvent, FailId, Fake, Handoff, Step, Unlock};
 use nyra_installer::rules::Problem;
 use nyra_installer::screens::{frame, page};
 use nyra_installer::state::{
@@ -737,7 +737,10 @@ fn the_bars_the_choice_and_the_danger_have_their_styles() {
         .lines()
         .position(|l| l.contains("> Erase sda and install"))
         .unwrap();
-    assert_eq!(style_at(&f, row, 4), Style::RED.with(Style::REVERSE));
+    assert_eq!(
+        style_at(&f, row, 4),
+        Style::RED.with(Style::BOLD).with(Style::REVERSE)
+    );
     // The cursor sits on the active item.
     assert_eq!((f.cursor.1, f.cursor.0), (row, 2));
 }
@@ -866,4 +869,157 @@ fn a_disk_is_accepted_only_at_dev_and_its_name() {
             .iter()
             .any(|s| s.enabled && s.item == Item::Btn(Btn::Erase)));
     }
+}
+
+#[test]
+fn disk_password_form_messages() {
+    let mut a = app("ok", 80, 24);
+    press(
+        &mut a,
+        &[
+            Key::Enter,
+            Key::Enter,
+            Key::Enter,
+            Key::Enter,
+            Key::Down,
+            Key::Enter,
+        ],
+    );
+    assert_eq!(a.state.screen, Screen::DiskPassword);
+    let fill = |a: &mut App, pw: &str, pw2: &str| {
+        for f in [Fld::DiskPw, Fld::DiskPw2] {
+            a.state.fields[f as usize].clear();
+        }
+        for (f, t) in [(Fld::DiskPw, pw), (Fld::DiskPw2, pw2)] {
+            for c in t.chars() {
+                a.state.fields[f as usize].push(c);
+            }
+        }
+        a.state.focus = 3; // Continue
+        press(a, &[Key::Enter]);
+        a.state.problem
+    };
+    assert_eq!(fill(&mut a, "", ""), Some(Problem::PasswordTooShort));
+    assert_eq!(
+        fill(&mut a, "short", "short"),
+        Some(Problem::PasswordTooShort)
+    );
+    assert_eq!(
+        fill(&mut a, &"x1".repeat(33), &"x1".repeat(33)),
+        Some(Problem::PasswordTooLong)
+    );
+    assert_eq!(
+        fill(&mut a, "pässword-123456", "pässword-123456"),
+        Some(Problem::PasswordCharacters)
+    );
+    assert_eq!(
+        fill(&mut a, "password12345", "password12345"),
+        Some(Problem::PasswordTooCommon)
+    );
+    // Two different passwords that are each fine.
+    assert_eq!(
+        fill(&mut a, PW, "correct horse 43"),
+        Some(Problem::PasswordsDiffer)
+    );
+    assert_eq!(fill(&mut a, PW, ""), Some(Problem::PasswordsDiffer));
+    assert!(flat(&a).contains("The passwords don’t match."));
+    assert_eq!(a.state.screen, Screen::DiskPassword);
+    assert_eq!(fill(&mut a, PW, PW), None);
+    assert_eq!(a.state.screen, Screen::Admin);
+}
+
+#[test]
+fn the_disk_password_is_checked_again_when_the_erase_starts() {
+    let mut a = app("ok", 80, 24);
+    to_review(&mut a, true);
+    // Whatever happened to it since the form, a password that fails the rules starts nothing.
+    for (pw, why) in [("short", "short"), ("", "empty")] {
+        let mut b = app("ok", 80, 24);
+        to_review(&mut b, true);
+        b.state.fields[Fld::DiskPw as usize].clear();
+        for c in pw.chars() {
+            b.state.fields[Fld::DiskPw as usize].push(c);
+        }
+        typed(&mut b, "sda");
+        let o = press(&mut b, &[Key::Enter, Key::Enter]);
+        assert!(o.is_empty(), "{why}");
+        assert_eq!(b.state.screen, Screen::Review);
+    }
+    // The two passwords no longer match.
+    a.state.fields[Fld::DiskPw2 as usize].clear();
+    typed(&mut a, "sda");
+    assert!(press(&mut a, &[Key::Enter, Key::Enter]).is_empty());
+    // And with the TPM the disk password is not asked for, so it can’t hold the start back.
+    let mut c = app("ok", 80, 24);
+    to_review(&mut c, false);
+    assert_eq!(erase(&mut c), [Outer::Started]);
+}
+
+#[test]
+fn going_back_from_the_disk_password_keeps_the_choice() {
+    let mut a = app("ok", 80, 24);
+    press(
+        &mut a,
+        &[
+            Key::Enter,
+            Key::Enter,
+            Key::Enter,
+            Key::Enter,
+            Key::Down,
+            Key::Enter,
+        ],
+    );
+    assert_eq!(a.state.screen, Screen::DiskPassword);
+    press(&mut a, &[Key::Esc]);
+    assert_eq!(a.state.screen, Screen::Encryption);
+    assert_eq!(
+        items(&a.state)[a.state.focus].item,
+        Item::Choice(Unlock::Password)
+    );
+    assert!(screen_text(&a).contains("> Unlock with a password"));
+    // With the TPM chosen, back from the administrator form lands on the TPM.
+    let mut a = app("ok", 80, 24);
+    press(
+        &mut a,
+        &[
+            Key::Enter,
+            Key::Enter,
+            Key::Enter,
+            Key::Enter,
+            Key::Enter,
+            Key::Esc,
+        ],
+    );
+    assert_eq!(
+        items(&a.state)[a.state.focus].item,
+        Item::Choice(Unlock::Tpm)
+    );
+}
+
+#[test]
+fn the_erase_button_looks_different_when_it_is_off() {
+    use nyra_installer::render::Style;
+    let mut a = app("ok", 80, 24);
+    to_review(&mut a, false);
+    let row_of = |a: &App, text: &str| -> usize {
+        screen_text(a)
+            .lines()
+            .position(|l| l.contains(text))
+            .unwrap()
+    };
+    // Off: a dash in front, no colour.
+    let t = screen_text(&a);
+    assert!(t.contains("  - Erase sda and install"), "{t}");
+    let f = frame(&a.state);
+    let r = row_of(&a, "Erase sda and install");
+    assert_eq!(f.grid.cells[r * 80 + 6].style, Style::NONE);
+    // On: no dash, red and bold.
+    typed(&mut a, "sda");
+    let t = screen_text(&a);
+    assert!(
+        t.contains("    Erase sda and install") && !t.contains("- Erase"),
+        "{t}"
+    );
+    let f = frame(&a.state);
+    assert_eq!(f.grid.cells[r * 80 + 6].style, Style::RED.with(Style::BOLD));
 }

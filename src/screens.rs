@@ -149,13 +149,28 @@ impl<'a> B<'a> {
     }
     /// A button or a choice: `> label` when focused.
     fn item(&mut self, indent: usize, label: &str, st: Style) {
+        self.item_marked(indent, label, st, "  ");
+    }
+    /// The button that erases: red and bold when it can be pressed, and a plain `-` in front of
+    /// it when it can’t yet, so that colour is not the only difference.
+    fn danger(&mut self, indent: usize, label: &str) {
+        if self.slot_enabled() {
+            self.item_marked(indent, label, Style::RED.with(Style::BOLD), "  ");
+        } else {
+            self.item_marked(indent, label, Style::NONE, "- ");
+        }
+    }
+    /// An item; `off` is what stands before it when it is turned off.
+    fn item_marked(&mut self, indent: usize, label: &str, st: Style, off: &str) {
         let enabled = self.slot_enabled();
         let f = self.focus_here(enabled);
         let lines = wrap(label, self.right().saturating_sub(indent + 2), 0);
         let (marker, style) = if f {
             ("> ", st.with(Style::REVERSE))
-        } else {
+        } else if enabled || off == "  " {
             ("  ", st)
+        } else {
+            (off, st)
         };
         self.push_item(
             vec![sp(indent), (style, format!("{marker}{}", lines[0]))],
@@ -795,14 +810,12 @@ fn review(s: &State, c: bool) -> Page {
         return b.finish(title, footers, false, false);
     };
     let name = d.name.clone();
-    let typed = s.field(Fld::Confirm).as_str().to_string();
     let erase = t::erase_button(&name);
     if c {
         b.para(0, &t::v_erase_s(&name, &name), Style::RED);
         b.field(0, 12, t::L_DISK_NAME, Fld::Confirm, false);
         b.item(0, t::B_GO_BACK, Style::NONE);
-        b.item(0, &erase, Style::RED);
-        let _ = typed;
+        b.danger(0, &erase);
         return b.finish(title, footers, false, false);
     }
     b.heading(t::V_TITLE);
@@ -843,7 +856,7 @@ fn review(s: &State, c: bool) -> Page {
     b.field(2, 12, t::L_DISK_NAME, Fld::Confirm, false);
     b.blank();
     b.item(2, t::B_GO_BACK, Style::NONE);
-    b.item(2, &erase, Style::RED);
+    b.danger(2, &erase);
     b.finish(title, footers, false, false)
 }
 

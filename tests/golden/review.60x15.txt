@@ -2,7 +2,7 @@ Nyra OS installer                            6 of 8 · Review
 Erase sda? Type its name: sda                               
 > Disk name   sd                                            
   Go back                                                   
-  Erase sda and install                                     
+- Erase sda and install                                     
                                                             
                                                             
                                                             
