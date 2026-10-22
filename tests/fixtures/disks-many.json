@@ -1,0 +1,134 @@
+[
+  {
+    "name": "sda",
+    "path": "/dev/sda",
+    "bytes": 500107862016,
+    "model": "Samsung SSD 870 EVO",
+    "serial": "S5H2NJ0N",
+    "wwn": "0x5002538f",
+    "ptuuid": "6f3c1d2e-0000-4000-8000-000000000001",
+    "removable": false,
+    "parts": [
+      {
+        "label": "",
+        "fs": "vfat",
+        "bytes": 272629760,
+        "microsoft": false
+      },
+      {
+        "label": "",
+        "fs": "",
+        "bytes": 16777216,
+        "microsoft": true
+      },
+      {
+        "label": "Windows (C:)",
+        "fs": "ntfs",
+        "bytes": 499000000000,
+        "microsoft": true
+      }
+    ],
+    "eligible": true,
+    "reason": null
+  },
+  {
+    "name": "nvme0n1",
+    "path": "/dev/nvme0n1",
+    "bytes": 1000204886016,
+    "model": "WD \"Black\" SN850",
+    "serial": null,
+    "wwn": null,
+    "ptuuid": null,
+    "removable": false,
+    "parts": [],
+    "eligible": true,
+    "reason": null
+  },
+  {
+    "name": "sdb",
+    "path": "/dev/sdb",
+    "bytes": 31000000000,
+    "model": "USB DISK 3.0",
+    "serial": null,
+    "wwn": null,
+    "ptuuid": null,
+    "removable": true,
+    "parts": [
+      {
+        "label": "NYRA-ISO",
+        "fs": "iso9660",
+        "bytes": 30000000000,
+        "microsoft": false
+      }
+    ],
+    "eligible": false,
+    "reason": "booted"
+  },
+  {
+    "name": "sdc",
+    "path": "/dev/sdc",
+    "bytes": 256000000000,
+    "model": "Data",
+    "serial": null,
+    "wwn": null,
+    "ptuuid": null,
+    "removable": false,
+    "parts": [
+      {
+        "label": "",
+        "fs": "ext4",
+        "bytes": 250000000000,
+        "microsoft": false
+      }
+    ],
+    "eligible": false,
+    "reason": "in_use"
+  },
+  {
+    "name": "sdd",
+    "path": "/dev/sdd",
+    "bytes": 256000000000,
+    "model": "Locked",
+    "serial": null,
+    "wwn": null,
+    "ptuuid": null,
+    "removable": false,
+    "parts": [],
+    "eligible": false,
+    "reason": "read_only"
+  },
+  {
+    "name": "sde",
+    "path": "/dev/sde",
+    "bytes": 16000000000,
+    "model": "Small",
+    "serial": null,
+    "wwn": null,
+    "ptuuid": null,
+    "removable": false,
+    "parts": [],
+    "eligible": false,
+    "reason": "too_small",
+    "min_gb": 32
+  },
+  {
+    "name": "sdf",
+    "path": "/dev/sdf",
+    "bytes": 256000000000,
+    "model": "Swap",
+    "serial": null,
+    "wwn": null,
+    "ptuuid": null,
+    "removable": false,
+    "parts": [
+      {
+        "label": "",
+        "fs": "swap",
+        "bytes": 8000000000,
+        "microsoft": false
+      }
+    ],
+    "eligible": false,
+    "reason": "in_use"
+  }
+]

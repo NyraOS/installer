@@ -49,6 +49,8 @@ pub enum DiskState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Screen {
     Menu,
+    /// Another installer on this machine has the right to install.
+    Busy,
     Computer,
     Fail(Failure),
     Release,
@@ -160,6 +162,15 @@ pub struct State {
 #[derive(Debug)]
 pub enum Event {
     Key(Key),
+    /// The answer to [`Effect::Lock`].
+    Lock {
+        register: bool,
+        got: bool,
+    },
+    /// The other installer is done: the lock is free.
+    LockFree,
+    /// `check` or `disks` could not be used; the backend’s log says why.
+    CheckFailed,
     Resize(usize, usize),
     /// Seconds since the installation started.
     Tick(u64),
@@ -167,8 +178,12 @@ pub enum Event {
     Backend(BackendEvent),
 }
 
-#[derive(Debug)]
+/// What the outside world has to do. No `Debug`: one of them holds the passwords.
 pub enum Effect {
+    /// Take the right to install, for the installation or for “register the key again”.
+    Lock {
+        register: bool,
+    },
     /// Run the checks and list the disks.
     Check,
     Install(Box<Answers>),
@@ -352,6 +367,7 @@ pub fn items(s: &State) -> Vec<Slot> {
         ]
         .map(b)
         .to_vec(),
+        Screen::Busy => vec![b(Btn::BackToMenu)],
         Screen::Computer => vec![b(Btn::Continue), b(Btn::Restart)],
         Screen::Fail(_) => vec![b(Btn::Restart), b(Btn::BackToMenu)],
         Screen::Release => vec![b(Btn::Match), b(Btn::NoMatch)],
@@ -473,7 +489,7 @@ fn reveal(s: &mut State, index: usize) {
 
 fn back(s: &mut State) -> Vec<Effect> {
     let screen = match s.screen {
-        Screen::Computer | Screen::Fail(_) => Screen::Menu,
+        Screen::Computer | Screen::Fail(_) | Screen::Busy => Screen::Menu,
         Screen::Release => Screen::Computer,
         Screen::Disk => Screen::Release,
         Screen::Encryption => Screen::Disk,
@@ -523,6 +539,18 @@ pub fn update(s: &mut State, ev: Event) -> Vec<Effect> {
             vec![]
         }
         Event::Machine(m) => machine(s, *m),
+        Event::Lock { register, got } => locked(s, register, got),
+        Event::LockFree => {
+            if s.screen == Screen::Busy {
+                goto(s, Screen::Menu);
+            }
+            vec![]
+        }
+        Event::CheckFailed => {
+            // Nothing was written: only `check` and `disks` ran.
+            s.machine = None;
+            error(s, ErrKind::Check, DiskState::Unchanged)
+        }
         Event::Backend(b) => backend(s, b),
         Event::Key(k) => key(s, k),
     }
@@ -745,13 +773,10 @@ fn press(s: &mut State, b: Btn) -> Vec<Effect> {
         (_, Btn::Shell) => vec![Effect::Shell],
         (_, Btn::Restart | Btn::RestartNow) => vec![Effect::Reboot],
         (_, Btn::PowerOff) => vec![Effect::PowerOff],
-        (Screen::Menu, Btn::Install) => {
-            goto(s, Screen::Computer);
-            vec![Effect::Check]
-        }
-        (Screen::Menu, Btn::Register) => {
-            s.standalone_key = true;
-            goto(s, Screen::BootKey);
+        (Screen::Menu, Btn::Install) => vec![Effect::Lock { register: false }],
+        (Screen::Menu, Btn::Register) => vec![Effect::Lock { register: true }],
+        (Screen::Busy, Btn::BackToMenu) => {
+            goto(s, Screen::Menu);
             vec![]
         }
         (Screen::Computer, Btn::Continue) if s.machine.is_some() => {
@@ -810,6 +835,24 @@ fn press(s: &mut State, b: Btn) -> Vec<Effect> {
             vec![]
         }
         _ => vec![],
+    }
+}
+
+/// The answer to the request for the right to install.
+fn locked(s: &mut State, register: bool, got: bool) -> Vec<Effect> {
+    if s.screen != Screen::Menu {
+        return vec![];
+    }
+    if !got {
+        goto(s, Screen::Busy);
+        vec![]
+    } else if register {
+        s.standalone_key = true;
+        goto(s, Screen::BootKey);
+        vec![]
+    } else {
+        goto(s, Screen::Computer);
+        vec![Effect::Check]
     }
 }
 
@@ -965,6 +1008,7 @@ pub fn reason_label(r: Reason) -> String {
         Reason::InUse => t::D_IN_USE.to_string(),
         Reason::ReadOnly => t::D_READ_ONLY.to_string(),
         Reason::TooSmall { min_gb } => t::d_too_small(min_gb),
+        Reason::Twin => t::D_TWIN.to_string(),
     }
 }
 

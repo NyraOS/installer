@@ -1,0 +1,20 @@
+{
+  "protocol": 1,
+  "arch": "aarch64",
+  "uefi": true,
+  "secure_boot": true,
+  "shim_checks": true,
+  "tpm": true,
+  "mem_tenths": 80,
+  "mem_need_gib": 6,
+  "virt": true,
+  "release": {
+    "version": "2026.10.7",
+    "commit": "cccccccccccccccccccccccccccccccccccccccc",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "signer": "nyra-image-signer@nyra-signing-3076.iam.gserviceaccount.com",
+    "cert_name": "Nyra OS Secure Boot 2026",
+    "fingerprint": "6F:3E:51:F4:0B:61:A4:71:CE:49:C0:95:E1:57:27:BA:F1:75:10:80:4B:31:C3:50:16:56:97:97:68:75:44:F9"
+  },
+  "reserved": []
+}

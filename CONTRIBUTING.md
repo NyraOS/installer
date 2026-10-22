@@ -37,8 +37,16 @@ The last one needs [cargo-deny](https://github.com/EmbarkStudios/cargo-deny).
 - `texts.rs`: the text checker. It reads `src/texts.rs` and holds each text to the writing rules
   (capital letters, typographic quotes, forbidden words, an action with every error, short forms
   that fit 40 columns), and it checks every screen for the character policy and for lost text.
+- `contract.rs`: what the real install script printed (`tests/fixtures`, see the README there) goes
+  through the code that reads it and through the state machine; damaged copies of it must never
+  panic.
+- `script.rs`: the state machine against the real backend code, with a stand-in for the script
+  (`tests/stub/nyra-install.sh`, needs `bash`) that tells the truth, lies, floods, dies or leaves
+  early.
+- `secrets.rs`: nothing that holds typed text can be printed (no `Debug`, no `Display`).
 - `pty.rs`: the program on a pseudo-terminal, driven by `tests/pty_drive.py` (needs `python3`,
-  standard library only).
+  standard library only), against the scripted backend and against the stand-in script, with
+  handoffs of the terminal.
 
 ## Texts
 
@@ -50,9 +58,16 @@ values as parameters, never pieces joined in code. Only printable ASCII and the 
 
 Each one needs a reason, and `cargo deny` must stay green:
 
-- `rustix`: raw mode, window size and `poll` on the terminal, and the limits that keep a crash from
-  writing passwords to a core file, without `unsafe` code of our own.
+- `rustix`: raw mode, window size and `poll` on the terminal, the pipes to the install script, its
+  lock file and the limits that keep a crash from writing passwords to a core file, without `unsafe`
+  code of our own.
 - `zeroize`: wipes passwords from memory with volatile writes the compiler may not remove.
+
+There is no JSON crate. `src/json.rs` reads exactly what the install script prints: objects, arrays,
+strings, whole numbers, booleans and null, strictly (no key twice, no control character in a string,
+no trailing text, no deep nesting). The contract is five small shapes, and a reader of 300 lines that
+the tests damage and fuzz is less to trust and to audit than `serde`, `serde_json` and the procedural
+macro crates under them, all of which would run on the ISO as root.
 
 ## Continuous integration
 

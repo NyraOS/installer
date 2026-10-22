@@ -103,6 +103,21 @@ pub const MENU_INTRO: &str =
 pub const MENU_NOTE: &str = "Installs Nyra OS on one disk. Nothing is erased until you confirm.";
 pub const SHELL_WARNING: &str =
     "This is a temporary system in memory. Type exit to come back to the installer.";
+pub const SHELL_FAILED: &str =
+    "The shell could not be started. Press Enter to go back to the installer.";
+pub const RESTARTING: &str = "Restarting…";
+pub const POWERING_OFF: &str = "Powering off…";
+pub const RESTART_FAILED: &str =
+    "The computer did not restart. Hold its power button to switch it off.";
+pub const POWER_OFF_FAILED: &str =
+    "The computer did not switch off. Hold its power button to switch it off.";
+
+// ----- Another screen is installing -----------------------------------------------------------
+
+pub const BUSY: &str = "The installation is running on another screen.";
+pub const BUSY_WHY: &str = "Only one screen can install at a time. When the other one is done or has stopped, this one goes back to the menu.";
+pub const BUSY_S: &str = "Installing on another screen.";
+pub const BUSY_T: &str = "Busy";
 
 // ----- Step 1: the computer ------------------------------------------------------------------
 
@@ -161,10 +176,8 @@ pub const FAIL_MEMORY_S: &str = "Add memory to this computer.";
 pub const FAIL_MEMORY_T: &str = "Not enough memory";
 
 pub const FAIL_NO_DISK: &str = "No disk found to install on.";
-pub const FAIL_NO_DISK_WHY: &str =
-    "The installer sees no disk it can use. The disk you started from can’t be used.";
-pub const FAIL_NO_DISK_DO: &str =
-    "What you can do: check that the disk is connected, then restart.";
+pub const FAIL_NO_DISK_WHY: &str = "The installer sees no disk it can use. The disk you started from can’t be used. Neither can disks that look exactly alike: the installer can’t tell them apart.";
+pub const FAIL_NO_DISK_DO: &str = "What you can do: check that the disk is connected, then restart. If two disks look alike, disconnect one of them.";
 pub const FAIL_NO_DISK_S: &str = "Check that the disk is connected.";
 pub const FAIL_NO_DISK_T: &str = "No disk found";
 
@@ -204,6 +217,7 @@ pub fn d_windows(parts: usize) -> String {
 pub const D_BOOTED: &str = "You started from this disk";
 pub const D_IN_USE: &str = "In use";
 pub const D_READ_ONLY: &str = "Read-only";
+pub const D_TWIN: &str = "Same as another disk";
 pub fn d_too_small(min_gb: u32) -> String {
     format!("Too small (needs at least {min_gb} GB)")
 }

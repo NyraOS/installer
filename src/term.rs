@@ -6,7 +6,10 @@ use rustix::event::{poll, PollFd, PollFlags};
 use rustix::fd::BorrowedFd;
 use rustix::io::Errno;
 use rustix::stdio::{stdin, stdout};
-use rustix::termios::{isatty, tcgetattr, tcgetwinsize, tcsetattr, OptionalActions, Termios};
+use rustix::termios::{
+    isatty, tcflush, tcgetattr, tcgetwinsize, tcsetattr, LocalModes, OptionalActions,
+    QueueSelector, Termios,
+};
 use std::io::Write;
 use std::time::Duration;
 
@@ -225,6 +228,17 @@ pub fn clamp_size(w: usize, h: usize) -> (usize, usize) {
     (w.min(MAX_W), h.min(MAX_H))
 }
 
+/// Waits until `fd` is readable or the time is up, without touching the terminal: for the time the
+/// terminal is somebody else’s.
+pub fn wait_for(fd: Option<BorrowedFd<'_>>, timeout: Duration) {
+    let mut fds: Vec<PollFd> = fd.iter().map(|f| PollFd::new(f, PollFlags::IN)).collect();
+    let ts = rustix::event::Timespec {
+        tv_sec: timeout.as_secs() as i64,
+        tv_nsec: timeout.subsec_nanos() as i64,
+    };
+    let _ = poll(&mut fds, Some(&ts));
+}
+
 /// What the terminal can show, from the environment.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Caps {
@@ -266,27 +280,47 @@ impl Term {
         }
         let saved = tcgetattr(stdin()).map_err(|e| e.to_string())?;
         let t = Term { saved };
-        t.raw()?;
+        t.raw(OptionalActions::Drain)?;
         Ok(t)
     }
 
-    fn raw(&self) -> Result<(), String> {
+    /// Raw mode. `flush` also throws away what was typed and not yet read.
+    fn raw(&self, when: OptionalActions) -> Result<(), String> {
         let mut raw = self.saved.clone();
         raw.make_raw();
-        tcsetattr(stdin(), OptionalActions::Drain, &raw).map_err(|e| e.to_string())
+        tcsetattr(stdin(), when, &raw).map_err(|e| e.to_string())
     }
 
-    /// Gives the terminal back to a program that talks to it directly.
+    /// Gives the terminal back to a program that talks to it directly. What was typed and not read
+    /// is thrown away (`TCSAFLUSH`): keys pressed while the installer was busy must not reach a
+    /// prompt of the program, least of all one that asks for a password.
     pub fn suspend(&self) {
         write(b"\x1b[0m\x1b[2J\x1b[H");
-        let _ = tcsetattr(stdin(), OptionalActions::Drain, &self.saved);
+        let _ = tcsetattr(stdin(), OptionalActions::Flush, &self.saved);
     }
 
-    /// Takes it back. The screen is cleared, scroll-back included.
+    /// Lends the terminal to the install script, which shares this program’s process group. As
+    /// `suspend`, but a Ctrl-C, Ctrl-\ or Ctrl-Z typed there is a character for the script’s
+    /// prompt and not a signal: it would stop this program as well, in the middle of an
+    /// installation.
+    pub fn lend(&self) {
+        write(b"\x1b[0m\x1b[2J\x1b[H");
+        let mut t = self.saved.clone();
+        t.local_modes.remove(LocalModes::ISIG);
+        let _ = tcsetattr(stdin(), OptionalActions::Flush, &t);
+    }
+
+    /// Takes it back, and throws away what was typed meanwhile, so that it is not taken for
+    /// keys of the installer. The screen is cleared, scroll-back included.
     pub fn resume(&self) -> Result<(), String> {
-        self.raw()?;
+        self.raw(OptionalActions::Flush)?;
         write(b"\x1b[0m\x1b[2J\x1b[3J\x1b[H");
         Ok(())
+    }
+
+    /// Throws away what was typed and not yet read.
+    pub fn discard_input(&self) {
+        let _ = tcflush(stdin(), QueueSelector::IFlush);
     }
 
     /// The size the terminal reports, `None` when it says 0 by 0 (a serial console).
@@ -297,8 +331,19 @@ impl Term {
 
     /// Waits for input. `None` is a timeout.
     pub fn read(&self, timeout: Option<Duration>) -> Option<Vec<u8>> {
+        self.read_with(None, timeout)
+    }
+
+    /// Waits for input, or for `other` to become readable, which gives `None` too: the caller
+    /// looks at what it was waiting for.
+    pub fn read_with(
+        &self,
+        other: Option<BorrowedFd<'_>>,
+        timeout: Option<Duration>,
+    ) -> Option<Vec<u8>> {
         let input = fd_in();
-        let mut fds = [PollFd::new(&input, PollFlags::IN)];
+        let mut fds = vec![PollFd::new(&input, PollFlags::IN)];
+        fds.extend(other.as_ref().map(|o| PollFd::new(o, PollFlags::IN)));
         let ts = timeout.map(|d| rustix::event::Timespec {
             tv_sec: d.as_secs() as i64,
             tv_nsec: d.subsec_nanos() as i64,
@@ -307,6 +352,10 @@ impl Term {
             Ok(0) | Err(_) => return None,
             Ok(_) => {}
         }
+        if fds[0].revents().is_empty() {
+            return None;
+        }
+        drop(fds);
         let mut buf = [0u8; 256];
         match rustix::io::read(fd_in(), &mut buf) {
             Ok(0) => Some(Vec::new()),

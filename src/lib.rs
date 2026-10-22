@@ -8,9 +8,12 @@
 pub mod app;
 pub mod backend;
 pub mod harden;
+pub mod json;
+pub mod protocol;
 pub mod render;
 pub mod rules;
 pub mod screens;
+pub mod script;
 pub mod state;
 pub mod term;
 pub mod texts;

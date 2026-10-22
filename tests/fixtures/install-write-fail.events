@@ -1,0 +1,5 @@
+{"event":"step","id":"verify","state":"start"}
+{"event":"step","id":"verify","state":"done"}
+{"event":"step","id":"prepare","state":"start"}
+{"event":"disk-changed"}
+{"event":"fail","id":"write","disk_changed":true}

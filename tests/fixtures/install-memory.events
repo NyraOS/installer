@@ -1,0 +1,2 @@
+{"event":"step","id":"verify","state":"start"}
+{"event":"fail","id":"memory","disk_changed":false}
