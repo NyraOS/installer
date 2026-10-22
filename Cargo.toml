@@ -9,8 +9,17 @@ license = "GPL-3.0-or-later"
 repository = "https://github.com/NyraOS/installer"
 description = "A full-screen text installer for Nyra OS"
 
+# The tests run 800,000 random keys: a little optimisation keeps them fast.
+[profile.dev]
+opt-level = 1
+
 [profile.release]
 # A small binary: the installer is on the ISO.
 lto = true
 codegen-units = 1
 strip = true
+
+[dependencies]
+# Safe wrappers for the terminal: raw mode, window size, poll. No `unsafe` of our own (rustix uses
+# raw syscalls on Linux, without libc).
+rustix = { version = "1", default-features = false, features = ["std", "termios", "event", "stdio"] }

@@ -1,0 +1,4 @@
+Nyra OS installer          3 of 8 · Disk
+> sda · 477 GB · Samsung SSD 870 EVO    
+  Windows, 3 partitions (1 of 2)        
+Up/Down choose · Enter next · Esc back  

@@ -1,0 +1,4 @@
+Nyra OS installer            Menu 1 of 5
+> Install Nyra OS                       
+  Register the Secure Boot key again    
+Up/Down choose · Enter select           
