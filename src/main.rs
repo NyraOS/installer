@@ -13,7 +13,7 @@ use nyra_installer::backend::{Backend, Fake, Handoff, SCENARIOS};
 use nyra_installer::harden;
 use nyra_installer::render::{paint, Frame};
 use nyra_installer::screens::frame;
-use nyra_installer::script::{sealed, Config, Script};
+use nyra_installer::script::{shell_command, Config, Script, SEAL_FAILED};
 use nyra_installer::state::Event;
 use nyra_installer::term::{wait_for, write, Caps, Key, Parser, Term};
 use nyra_installer::texts;
@@ -57,13 +57,17 @@ fn main() -> ExitCode {
         return ExitCode::from(1);
     }
     match (fake, cfg) {
-        (Some(f), _) => start(f, false),
-        (None, Some(cfg)) => start(Script::new(cfg), true),
+        (Some(f), _) => start(f, false, "systemctl".into()),
+        (None, Some(cfg)) => {
+            let systemctl = cfg.systemctl.clone();
+            start(Script::new(cfg), true, systemctl)
+        }
         (None, None) => usage(),
     }
 }
 
-/// `--script PATH` and `--lock PATH`, in any order: another script, another lock file. For tests.
+/// `--script PATH`, `--lock PATH` and `--systemctl PATH`, in any order: another script, another lock
+/// file, another command to restart with. For tests.
 fn config(args: &[String]) -> Option<Config> {
     let mut cfg = Config::default();
     let mut rest = args.chunks(2);
@@ -71,6 +75,7 @@ fn config(args: &[String]) -> Option<Config> {
         match pair {
             [flag, path] if flag == "--script" => cfg.script = path.into(),
             [flag, path] if flag == "--lock" => cfg.lock = path.into(),
+            [flag, path] if flag == "--systemctl" => cfg.systemctl = path.into(),
             _ => return None,
         }
     }
@@ -82,13 +87,13 @@ fn usage() -> ExitCode {
     let mut err = std::io::stderr();
     let _ = writeln!(
         err,
-        "Usage: nyra-installer [--script PATH] [--lock PATH] | --fake SCENARIO"
+        "Usage: nyra-installer [--script PATH] [--lock PATH] [--systemctl PATH] | --fake SCENARIO"
     );
     let _ = writeln!(err, "Scenarios: {}", SCENARIOS.join(", "));
     ExitCode::from(2)
 }
 
-fn start<B: Backend>(backend: B, real: bool) -> ExitCode {
+fn start<B: Backend>(backend: B, real: bool, systemctl: std::path::PathBuf) -> ExitCode {
     let caps = Caps::from_env(|k| std::env::var(k).ok());
     let term = match Term::open() {
         Ok(t) => t,
@@ -117,8 +122,10 @@ fn start<B: Backend>(backend: B, real: bool) -> ExitCode {
                 let _ = writeln!(out, "{verb} (scripted backend: nothing is switched off).");
                 return ExitCode::SUCCESS;
             }
-            if Command::new("systemctl")
+            if Command::new(&systemctl)
                 .arg(verb)
+                .env_clear()
+                .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
                 .status()
                 .is_ok_and(|s| s.success())
             {
@@ -302,8 +309,16 @@ fn shell(term: &Term, painted: &mut Option<Frame>) {
     let _ = writeln!(out, "{}", texts::SHELL_WARNING);
     let _ = out.flush();
     // Without the descriptors the installer was given, if `bash` can do that; else as it is.
-    let ran = sealed("/bin/bash").arg("-i").status().is_ok()
-        || Command::new("/bin/sh").arg("-i").status().is_ok();
+    let ran = shell_command()
+        .status()
+        .is_ok_and(|s| s.code() != Some(SEAL_FAILED))
+        || Command::new("/bin/sh")
+            .arg("-i")
+            .env_clear()
+            .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+            .env("TERM", "vt220")
+            .status()
+            .is_ok();
     if !ran {
         let _ = writeln!(out, "{}", texts::SHELL_FAILED);
         let _ = out.flush();

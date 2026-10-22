@@ -54,6 +54,7 @@ fn config(dir: &Dir, stub: &str) -> Config {
             ("STUB".into(), stub.into()),
             ("STUB_DIR".into(), dir.0.display().to_string()),
         ],
+        ..Config::default()
     }
 }
 
@@ -401,4 +402,143 @@ fn control_characters_of_a_disk_do_not_reach_the_screen() {
         "{model:?}"
     );
     assert!(model.starts_with("QEMU"));
+}
+
+/// Sets variables of this process for the time of a test, and takes them away after it.
+struct Env(Vec<String>);
+
+impl Env {
+    fn set(vars: &[(&str, &str)]) -> Env {
+        for (k, v) in vars {
+            std::env::set_var(k, v);
+        }
+        Env(vars.iter().map(|(k, _)| (*k).to_string()).collect())
+    }
+}
+
+impl Drop for Env {
+    fn drop(&mut self) {
+        for k in &self.0 {
+            std::env::remove_var(k);
+        }
+    }
+}
+
+#[test]
+fn nothing_of_the_environment_reaches_the_script_or_the_shell_around_it() {
+    let _serial = serial();
+    let dir = Dir::new("environment");
+    let ran = |name: &str| dir.0.join(name).display().to_string();
+    // A file `bash` would run at start for a root process whose environment is polluted, and a
+    // function it would import and run in place of a builtin.
+    std::fs::write(
+        dir.0.join("bash-env"),
+        format!("echo ran > {}\n", ran("bash-env-ran")),
+    )
+    .unwrap();
+    let _env = Env::set(&[
+        ("BASH_ENV", &ran("bash-env")),
+        ("ENV", &ran("bash-env")),
+        (
+            "BASH_FUNC_eval%%",
+            &format!("() {{ echo ran > {}; }}", ran("function-ran")),
+        ),
+        ("NYRA_LEAK", "yes"),
+        ("LD_PRELOAD", "/nonexistent.so"),
+    ]);
+    // The pollution works on a bash that is given it: the test would otherwise prove nothing.
+    let out = std::process::Command::new("/bin/bash")
+        .args(["-c", "eval true"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    assert!(dir.0.join("bash-env-ran").exists() && dir.0.join("function-ran").exists());
+    std::fs::remove_file(dir.0.join("bash-env-ran")).unwrap();
+    std::fs::remove_file(dir.0.join("function-ran")).unwrap();
+
+    let mut a = app(&dir, "ok");
+    install(&mut a);
+    pump(&mut a, ended);
+    assert_eq!(a.state.screen, Screen::Done);
+    assert!(
+        !dir.0.join("bash-env-ran").exists(),
+        "BASH_ENV or ENV was run"
+    );
+    assert!(
+        !dir.0.join("function-ran").exists(),
+        "an exported function was run"
+    );
+    for file in ["check-env", "env"] {
+        let env = dir.read(file);
+        assert!(!env.is_empty(), "{file}");
+        for bad in ["BASH_ENV", "ENV=", "BASH_FUNC", "NYRA_LEAK", "LD_PRELOAD"] {
+            assert!(!env.contains(bad), "{file}: {bad}");
+        }
+        assert!(
+            env.lines().any(|l| l.starts_with("PATH=/usr/local/sbin:")),
+            "{file}"
+        );
+    }
+}
+
+#[test]
+fn without_a_list_of_descriptors_nothing_is_run() {
+    let _serial = serial();
+    // /proc is not there: the wrapper must refuse to start the script rather than start it with
+    // whatever descriptors it was given.
+    let dir = Dir::new("no-proc");
+    let mut cfg = config(&dir, "ok");
+    cfg.proc_fd = dir.0.join("not-there").display().to_string();
+    let mut script = Script::new(cfg);
+    assert_eq!(script.info().version, "unknown");
+    assert!(script.load().is_err());
+    assert!(
+        script.log().iter().any(|l| l.contains("can not be read")),
+        "{:?}",
+        script.log()
+    );
+    script.start_mok();
+    let end = Instant::now() + Duration::from_secs(10);
+    let event = loop {
+        let _ = script.next_due();
+        if let Some(e) = script.ready() {
+            break e;
+        }
+        assert!(Instant::now() < end);
+        wait_for(script.waiting_on(), Duration::from_millis(50));
+    };
+    assert_eq!(event, nyra_installer::backend::BackendEvent::Died);
+    // The script itself never ran.
+    assert!(dir.read("check-fds").is_empty() && dir.read("fds").is_empty());
+}
+
+#[test]
+fn an_old_script_is_asked_to_stop_and_allowed_to_clean_up() {
+    let _serial = serial();
+    // A script still running when a new one starts is sent SIGTERM and given time: its cleanup (the
+    // directory of its secrets, an open volume) is what SIGKILL would skip.
+    let dir = Dir::new("slow-stop");
+    let mut script = Script::new(config(&dir, "mok-slow"));
+    script.start_mok();
+    std::thread::sleep(Duration::from_millis(400));
+    let t = Instant::now();
+    script.start_mok();
+    assert!(
+        dir.0.join("cleaned").exists(),
+        "the old script was not allowed to clean up"
+    );
+    assert!(
+        t.elapsed() >= Duration::from_millis(900),
+        "{:?}",
+        t.elapsed()
+    );
+    // And the new one is stopped the same way before the test ends.
+    std::thread::sleep(Duration::from_millis(400));
+    script.cancel();
+    let end = Instant::now() + Duration::from_secs(10);
+    while script.running() && Instant::now() < end {
+        let _ = script.ready();
+        wait_for(script.waiting_on(), Duration::from_millis(50));
+    }
+    assert!(!script.running());
 }

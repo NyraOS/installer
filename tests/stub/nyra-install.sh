@@ -6,12 +6,16 @@
 # saw, STUB_TTY=1 makes the handoffs use /dev/tty (they need a terminal of their own).
 set -u
 here="$(cd "$(dirname "$0")" && pwd)"
-fx="$here/../fixtures"
+# The installer gives its children a clean environment: a test that runs the installer itself leaves
+# what the stand-in needs in a file next to it.
+# shellcheck disable=SC1091
+[ ! -f "$here/stub.conf" ] || . "$here/stub.conf"
+fx="${STUB_FX:-$here/../fixtures}"
 what="${STUB:-ok}"
 
 case "${1:-}" in
   check)
-    [ -z "${STUB_DIR:-}" ] || ls "/proc/$$/fd" > "$STUB_DIR/check-fds"
+    [ -z "${STUB_DIR:-}" ] || { ls "/proc/$$/fd" > "$STUB_DIR/check-fds"; env > "$STUB_DIR/check-env"; }
     case "$what" in
       check-fails) echo "nyra-install: the tree is not the release it says" >&2; exit 1 ;;
       check-garbage) echo "this is not json"; exit 0 ;;
@@ -55,6 +59,7 @@ step() { emit "{\"event\":\"step\",\"id\":\"$1\",\"state\":\"$2\"}"; }
 fail() { emit "{\"event\":\"fail\",\"id\":\"$1\",\"disk_changed\":$2}"; exit "$3"; }
 # Which descriptors the script was given: only the terminal, the two pipes and its own.
 ls "/proc/$$/fd" > "${STUB_DIR:?}/fds"
+env > "$STUB_DIR/env"
 
 if [ "$sub" = install ]; then
   IFS= read -r -n 4097 -u 4 line || exit 1
@@ -84,6 +89,13 @@ handoff() { # handoff ID
 
 if [ "$sub" = mok-import ]; then
   case "$what" in
+    mok-slow)
+      # A script that cleans up when it is told to stop, and takes a moment to do it.
+      trap 'sleep 1; echo cleaned > "$STUB_DIR/cleaned"; exit 10' TERM
+      # (It gives up by itself after a while, so that a test that fails does not leave it running.)
+      for _ in $(seq 300); do sleep 0.05; done
+      exit 1
+      ;;
     mok-fail) emit '{"event":"handoff","id":"mok-password"}'; IFS= read -r -u 4 go; fail mok false 10 ;;
     mok-hostile) emit '{"event":"step","id":"verify","state":"start"}'; sleep 1; exit 0 ;;
   esac

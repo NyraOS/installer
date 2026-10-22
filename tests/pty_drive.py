@@ -528,17 +528,23 @@ class Stub:
         self.dir = tempfile.mkdtemp(prefix="nyra-pty-")
         os.mkdir(os.path.join(self.dir, "bin"))
         with open(os.path.join(self.dir, "bin", "systemctl"), "w") as f:
-            f.write('#!/bin/sh\necho "$@" >> "$STUB_DIR/systemctl.log"\n')
+            f.write('#!/bin/sh\necho "$@" >> "%s/systemctl.log"\n' % self.dir)
         os.chmod(os.path.join(self.dir, "bin", "systemctl"), 0o755)
-        self.script = os.path.abspath(os.path.join(golden, "..", "stub", "nyra-install.sh"))
-        self.env = {
-            "STUB": scenario, "STUB_DIR": self.dir, "STUB_TTY": "1" if tty else "0", "STUB_KEY": KEY,
-            "STUB_AFTER": "0.3",
-            "PATH": self.dir + "/bin:" + os.environ.get("PATH", "/usr/bin:/bin"),
-        }
+        # The installer gives the script a clean environment: what it needs is in a file next to it.
+        import shutil
+        src = os.path.abspath(os.path.join(golden, "..", "stub", "nyra-install.sh"))
+        self.script = os.path.join(self.dir, "nyra-install.sh")
+        shutil.copy(src, self.script)
+        conf = {"STUB": scenario, "STUB_DIR": self.dir, "STUB_TTY": "1" if tty else "0", "STUB_KEY": KEY,
+                "STUB_AFTER": "0.3", "STUB_FX": os.path.abspath(os.path.join(golden, "..", "fixtures"))}
+        with open(os.path.join(self.dir, "stub.conf"), "w") as f:
+            for k, v in conf.items():
+                f.write("%s='%s'\n" % (k, v))
+        self.env = {}
 
     def session(self, binary, **kw):
-        args = ["--script", self.script, "--lock", os.path.join(self.dir, "lock")]
+        args = ["--script", self.script, "--lock", os.path.join(self.dir, "lock"),
+                "--systemctl", os.path.join(self.dir, "bin", "systemctl")]
         return Session(binary, None, args=args, env=self.env, ctty=True, **kw)
 
     def read(self, name):

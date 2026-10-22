@@ -34,24 +34,79 @@ pub const DEFAULT_SCRIPT: &str = "/usr/lib/nyra/release/tools/install/nyra-insta
 pub const DEFAULT_LOCK: &str = "/run/nyra-installer.lock";
 pub const DEFAULT_LOG: &str = "/run/nyra-installer/install.log";
 
-/// Closes every descriptor above 2 that this process was given and runs the rest of its arguments.
-/// The program has no `unsafe` code and so no way to mark descriptors it does not know about as
-/// close-on-exec; whatever the service manager or a shell left open stops here, before the script.
-/// The numbers come from `/proc`, so they are digits only.
-pub const SEAL: &str = r#"for f in /proc/self/fd/*; do n=${f##*/}; [ "$n" -gt 2 ] && eval "exec $n>&-"; done; exec "$@""#;
-/// The same for `install` and `mok-import`: the first two arguments are the numbers of the pipe ends
-/// that become descriptors 3 and 4, and nothing else above 2 is left.
-const SEAL_PIPES: &str = r#"exec 3>&"$1" 4<&"$2" || exit 125; for f in /proc/self/fd/*; do n=${f##*/}; [ "$n" -gt 4 ] && eval "exec $n>&-"; done; shift 2; exec "$@""#;
+/// Where the descriptors of a process are listed.
+pub const PROC_FD: &str = "/proc/self/fd";
+/// What a child finds in its environment, besides `TERM` and `LANG`: nothing else of ours.
+const SAFE_PATH: &str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+/// The exit status of the wrapper when it can’t make the child safe.
+pub const SEAL_FAILED: i32 = 125;
 
-/// A command that runs `program` with nothing but descriptors 0, 1 and 2.
+/// The shell that closes every descriptor above `keep` that this process was given, then runs the
+/// rest of its arguments. The program has no `unsafe` code and so no way to mark descriptors it does
+/// not know about as close-on-exec; whatever the service manager or a shell left open stops here,
+/// before the script. If the list of descriptors can’t be read the wrapper refuses to run anything:
+/// closing nothing silently would be the one way to fail open.
+///
+/// With `pipes`, the first two arguments are the numbers of the pipe ends that become descriptors 3
+/// and 4 (`keep` is then 4). The numbers in the script are ours or the kernel’s, digits only.
+fn seal_script(fd_dir: &str, keep: u8, pipes: bool) -> String {
+    let (take, drop_two) = if pipes {
+        (
+            format!(r#"exec 3>&"$1" 4<&"$2" || exit {SEAL_FAILED}; "#),
+            "shift 2; ",
+        )
+    } else {
+        (String::new(), "")
+    };
+    format!(
+        r#"[ -d '{fd_dir}' ] || {{ echo "nyra-installer: {fd_dir} can not be read, so the descriptors can not be closed" >&2; exit {SEAL_FAILED}; }}; {take}for f in '{fd_dir}'/*; do n=${{f##*/}}; [ "$n" -gt {keep} ] && eval "exec $n>&-"; done; {drop_two}exec "$@""#
+    )
+}
+
+/// The environment of every child: nothing of ours. `BASH_ENV`, `ENV`, exported functions,
+/// `LD_PRELOAD` and the rest stay behind; the terminal type and a fixed language are all it gets.
+fn clean_env(cmd: &mut Command) {
+    let term = std::env::var("TERM")
+        .ok()
+        .filter(|t| {
+            (1..=32).contains(&t.len())
+                && t.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'+'))
+        })
+        .unwrap_or_else(|| "vt220".to_string());
+    cmd.env_clear()
+        .env("PATH", SAFE_PATH)
+        .env("TERM", term)
+        .env("LANG", "C.UTF-8")
+        .env("HOME", "/root");
+}
+
+/// A command that runs `program` with nothing but descriptors 0, 1 and 2 and a clean environment.
 pub fn sealed(program: impl AsRef<std::ffi::OsStr>) -> Command {
+    sealed_in(PROC_FD, program)
+}
+
+fn sealed_in(fd_dir: &str, program: impl AsRef<std::ffi::OsStr>) -> Command {
     let mut c = Command::new("/bin/bash");
-    c.arg("-c").arg(SEAL).arg("nyra-installer").arg(program);
+    c.arg("-c")
+        .arg(seal_script(fd_dir, 2, false))
+        .arg("nyra-installer")
+        .arg(program);
+    clean_env(&mut c);
+    c
+}
+
+/// A shell as the person at the console wants it, or `/bin/sh` if there is no `bash`.
+pub fn shell_command() -> Command {
+    let mut c = sealed("/bin/bash");
+    c.arg("-i");
     c
 }
 
 /// `check` and `disks` are quick. A script that takes longer is stuck.
 const CAPTURE_TIME: Duration = Duration::from_secs(60);
+/// How long a script that was told to stop may take to clean up before it is killed.
+const STOP_TIME: Duration = Duration::from_secs(5);
 /// How often a running script is looked at when it says nothing.
 const WATCH: Duration = Duration::from_millis(200);
 /// How many lines of the log an error screen shows.
@@ -68,6 +123,10 @@ pub struct Config {
     pub capture_time: Duration,
     /// Variables added to the script’s environment: for tests.
     pub env: Vec<(String, String)>,
+    /// Where the descriptors of a process are listed: for tests.
+    pub proc_fd: String,
+    /// What restarts and switches off the computer.
+    pub systemctl: PathBuf,
 }
 
 impl Default for Config {
@@ -78,6 +137,8 @@ impl Default for Config {
             log: DEFAULT_LOG.into(),
             capture_time: CAPTURE_TIME,
             env: Vec::new(),
+            proc_fd: PROC_FD.into(),
+            systemctl: "/usr/bin/systemctl".into(),
         }
     }
 }
@@ -85,8 +146,9 @@ impl Default for Config {
 // ---------------------------------------------------------------------------------------------
 // Lines.
 
-/// Cuts a stream of bytes into lines, none longer than `max`. A line that is longer is read to its
-/// end and given as `Err(())`: it is not one of ours.
+/// Cuts a stream of bytes into lines, none longer than `max`. A line that is longer is given as
+/// `Err(())` as soon as it is known to be too long, without waiting for its end, and the rest of it
+/// is dropped: it is not one of ours, and the run ends with it.
 pub struct Lines {
     buf: Vec<u8>,
     skipping: bool,
@@ -105,15 +167,14 @@ impl Lines {
     pub fn feed(&mut self, bytes: &[u8], out: &mut Vec<Result<Vec<u8>, ()>>) {
         for &b in bytes {
             if b == b'\n' {
-                if self.skipping {
-                    out.push(Err(()));
-                } else {
+                if !self.skipping {
                     out.push(Ok(std::mem::take(&mut self.buf)));
                 }
                 self.skipping = false;
                 self.buf.clear();
             } else if !self.skipping {
                 if self.buf.len() >= self.max {
+                    out.push(Err(()));
                     self.skipping = true;
                     self.buf = Vec::new();
                 } else {
@@ -212,7 +273,7 @@ impl Script {
 
     /// Runs a subcommand that prints JSON and nothing else, and gives what it printed.
     fn capture(&mut self, sub: &str) -> Result<String, Unusable> {
-        let mut child = match sealed(&self.cfg.script)
+        let mut child = match sealed_in(&self.cfg.proc_fd, &self.cfg.script)
             .arg(sub)
             .envs(self.cfg.env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::null())
@@ -272,9 +333,11 @@ impl Script {
         fcntl_setfd(&an_r, FdFlags::empty())?;
         fcntl_setfl(&ev_r, OFlags::NONBLOCK)?;
         let raw = |fd: &OwnedFd| rustix::fd::AsRawFd::as_raw_fd(fd);
-        let child = Command::new("/bin/bash")
+        let mut command = Command::new("/bin/bash");
+        clean_env(&mut command);
+        let child = command
             .arg("-c")
-            .arg(SEAL_PIPES)
+            .arg(seal_script(&self.cfg.proc_fd, 4, true))
             .envs(self.cfg.env.iter().map(|(k, v)| (k, v)))
             .arg("nyra-installer")
             .arg(raw(&ev_w).to_string())
@@ -302,13 +365,26 @@ impl Script {
     }
 
     /// A run that is over, or abandoned and gone, is dropped; one that is still alive is stopped.
+    /// It is asked to stop first and given a few seconds: its cleanup (the directory of its
+    /// secrets, an open volume) runs only if it is allowed to finish, and killing it outright
+    /// would leave all that behind.
     fn reap(&mut self) {
-        if let Some(mut run) = self.run.take() {
-            if run.child.try_wait().ok().flatten().is_none() {
-                let _ = run.child.kill();
-            }
-            let _ = run.child.wait();
+        let Some(mut run) = self.run.take() else {
+            return;
+        };
+        if run.child.try_wait().ok().flatten().is_some() {
+            return;
         }
+        run.terminate();
+        let end = Instant::now() + STOP_TIME;
+        while Instant::now() < end {
+            if run.child.try_wait().ok().flatten().is_some() {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let _ = run.child.kill();
+        let _ = run.child.wait();
     }
 
     fn start(&mut self, sub: &str, answers: Option<&Answers>) {
@@ -696,10 +772,12 @@ mod tests {
         let mut l = Lines::new(10);
         let mut out = Vec::new();
         l.feed(&long, &mut out);
-        assert!(out.is_empty());
+        // Known to be too long at once, not at its end.
+        assert_eq!(out, [Err(())]);
+        out.clear();
         assert!(l.buf.capacity() <= 16);
         l.feed(b"\nok\n", &mut out);
-        assert_eq!(out, [Err(()), Ok(b"ok".to_vec())]);
+        assert_eq!(out, [Ok(b"ok".to_vec())]);
         // The limit is on the line, not on the stream.
         assert_eq!(lines(3, &[b"abc\n"]), [Ok(b"abc".to_vec())]);
         assert_eq!(lines(3, &[b"abcd\n"]), [Err(())]);
