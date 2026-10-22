@@ -3,11 +3,11 @@
 //! The key parser, and random input: the program must never panic and must keep its promises
 //! whatever is pressed.
 
-use nyra_installer::app::App;
-use nyra_installer::backend::{Fake, SCENARIOS};
+use nyra_installer::app::{App, Outer};
+use nyra_installer::backend::{BackendEvent, FailId, Fake, Handoff, Step, SCENARIOS};
 use nyra_installer::render::paint;
 use nyra_installer::screens::frame;
-use nyra_installer::state::{items, Event, Overlay, Screen};
+use nyra_installer::state::{items, Btn, Event, Item, Screen};
 use nyra_installer::term::{Caps, Key, Parser};
 
 fn parse(bytes: &[u8]) -> Vec<Key> {
@@ -174,20 +174,92 @@ fn random_bytes_never_panic_the_parser() {
     }
 }
 
-fn random_event(rng: &mut Rng, a: &App) -> Event {
+const PW: &str = "correct horse 42";
+
+/// Keys that fill in the form on screen, so that the walk gets past the forms.
+fn fill_in(screen: Screen) -> Vec<Key> {
+    let wipe_then = |text: &str| -> Vec<Key> {
+        (0..40)
+            .map(|_| Key::Backspace)
+            .chain(text.chars().map(Key::Char))
+            .collect()
+    };
+    let mut k: Vec<Key> = vec![Key::Up; 6];
+    match screen {
+        Screen::DiskPassword => {
+            k.extend(wipe_then(PW));
+            k.push(Key::Tab);
+            k.extend(wipe_then(PW));
+            k.extend([Key::Tab, Key::Tab, Key::Enter]);
+        }
+        Screen::Admin => {
+            k.extend(wipe_then("maria"));
+            k.push(Key::Tab);
+            k.extend(wipe_then(PW));
+            k.push(Key::Tab);
+            k.extend(wipe_then(PW));
+            k.extend([Key::Tab, Key::Tab, Key::Enter]);
+        }
+        Screen::Review => {
+            k.extend(wipe_then("sda"));
+            k.extend([Key::Enter, Key::Enter]);
+        }
+        _ => k.clear(),
+    }
+    k
+}
+
+fn random_event(rng: &mut Rng, a: &mut App) -> Vec<Event> {
     use Key::*;
     let n = rng.below(100);
+    let key = |k| vec![Event::Key(k)];
+    let macro_keys = fill_in(a.state.screen);
+    if !macro_keys.is_empty() && rng.below(12) == 0 {
+        return macro_keys.into_iter().map(Event::Key).collect();
+    }
     match n {
-        0..=39 => Event::Key([Up, Down, Tab, BackTab, Enter, Enter][rng.below(6)]),
-        40..=49 => Event::Key(Esc),
-        50..=59 => Event::Key(Backspace),
-        60..=71 => {
+        0..=13 => key([Up, Down, Tab, BackTab, Enter, Enter][rng.below(6)]),
+        14..=19 => key(Enter),
+        20..=25 => key(Esc),
+        26..=29 => key(Backspace),
+        30..=47 => {
             let chars: Vec<char> = "abcdsDA ?*-_012xyz!é".chars().collect();
-            Event::Key(Char(chars[rng.below(chars.len())]))
+            key(Char(chars[rng.below(chars.len())]))
         }
-        72..=81 => Event::Key([PageUp, PageDown, Home, End, F1, Delete, Left, Right][rng.below(8)]),
-        82..=86 => Event::Key([Ctrl('l'), Ctrl('c'), Other, Pos(1, 1)][rng.below(4)]),
-        87..=92 => {
+        48..=50 => key([PageUp, PageDown, Home, End, F1, Delete, Left, Right][rng.below(8)]),
+        51..=52 => key([Ctrl('l'), Ctrl('c'), Other, Pos(1, 1)][rng.below(4)]),
+        // Typed values that make the forms pass, so that the deep screens are reached.
+        53..=60 => {
+            let text = ["sda", "nvme0n1", "maria", PW, "root", "daemon"][rng.below(6)];
+            text.chars().map(|c| Event::Key(Char(c))).collect()
+        }
+        // The script goes on.
+        61..=84 => match a.backend.next_event() {
+            Some((_, e)) => vec![Event::Backend(e)],
+            None => vec![],
+        },
+        85..=87 => {
+            let events = [
+                BackendEvent::Start(Step::Verify),
+                BackendEvent::Done(Step::Prepare),
+                BackendEvent::DiskChanged,
+                BackendEvent::HandoffEnd,
+                BackendEvent::HandoffStart(Handoff::RecoveryKey),
+                BackendEvent::Fail {
+                    id: FailId::Write,
+                    disk_changed: rng.below(2) == 0,
+                },
+                BackendEvent::Fail {
+                    id: FailId::Verify,
+                    disk_changed: false,
+                },
+                BackendEvent::Finished,
+                BackendEvent::Died,
+                BackendEvent::Unknown,
+            ];
+            vec![Event::Backend(events[rng.below(events.len())])]
+        }
+        88..=89 => {
             let sizes = [
                 (80, 24),
                 (40, 4),
@@ -201,9 +273,10 @@ fn random_event(rng: &mut Rng, a: &App) -> Event {
                 (50, 20),
             ];
             let (w, h) = sizes[rng.below(sizes.len())];
-            Event::Resize(w, h)
+            vec![Event::Resize(w, h)]
         }
-        _ => {
+        90 => vec![Event::Tick(rng.next() % 100_000)],
+        91..=92 => {
             // The machine changes under the user’s feet.
             let mut m = a.backend.machine.clone();
             m.tpm = rng.below(2) == 0;
@@ -211,8 +284,9 @@ fn random_event(rng: &mut Rng, a: &App) -> Event {
             for d in &mut m.disks {
                 d.eligible = rng.below(3) != 0;
             }
-            Event::Machine(Box::new(m))
+            vec![Event::Machine(Box::new(m))]
         }
+        _ => key(Char(b"abcdefghijklmnopqrstuvwxyz"[rng.below(26)] as char)),
     }
 }
 
@@ -230,50 +304,103 @@ fn random_keys_keep_the_promises() {
             color: true,
             utf8: true,
         };
-        for count in 1..=events_each {
-            let ev = random_event(&mut rng, &a);
-            a.dispatch(ev);
-            let s = &a.state;
-            visited.insert(match s.screen {
-                Screen::Fail(f) => format!("Fail({f:?})"),
-                other => format!("{other:?}"),
-            });
-            // A disk that is not eligible is never chosen.
-            if let Some(i) = s.disk {
-                assert!(s.machine.as_ref().unwrap().disks[i].eligible);
-            }
-            // The focus is on an item that exists and is on.
-            let list = items(s);
-            if !list.is_empty() && s.overlay == Overlay::None {
-                assert!(s.focus < list.len(), "{:?} focus {}", s.screen, s.focus);
-                assert!(
-                    list[s.focus].enabled,
-                    "{:?}: focus on an item that is off",
-                    s.screen
-                );
-            }
-            if count % 41 == 0 {
-                let f = frame(s);
-                assert_eq!((f.grid.w, f.grid.h), (s.w.max(1), s.h.max(1)));
-                assert!(f.cursor.0 < f.grid.w && f.cursor.1 < f.grid.h);
-                let text = f.grid.to_text(true);
-                assert!(
-                    text.chars()
-                        .all(|c| c == '\n' || (' '..='~').contains(&c) || "’“”·…".contains(c)),
-                    "{text}"
-                );
-                let bytes = paint(painted.as_ref(), &f, caps);
-                assert!(!bytes.is_empty());
-                painted = Some(f);
+        let mut count = 0;
+        while count < events_each {
+            for ev in random_event(&mut rng, &mut a) {
+                count += 1;
+                let before_screen = a.state.screen;
+                let before_item = items(&a.state).get(a.state.focus).copied();
+                let before_confirmed = a.state.confirmed();
+                let is_key = matches!(ev, Event::Key(_));
+                let outer = a.dispatch(ev);
+                for o in &outer {
+                    match o {
+                        Outer::Started => {
+                            // Invariant 1: only from the review, on the button, with the name typed.
+                            assert_eq!(before_screen, Screen::Review);
+                            assert!(is_key);
+                            assert_eq!(before_item.map(|s| s.item), Some(Item::Btn(Btn::Erase)));
+                            assert!(before_confirmed);
+                            assert!(a.state.fields.iter().all(|f| f.is_empty()));
+                        }
+                        Outer::Go(_) => a.backend.go(),
+                        _ => {}
+                    }
+                }
+                let s = &a.state;
+                visited.insert(match s.screen {
+                    Screen::Error(k, _) => format!("Error({k:?})"),
+                    Screen::Fail(f) => format!("Fail({f:?})"),
+                    other => format!("{other:?}"),
+                });
+                // Invariant 2: a disk that is not eligible is never chosen.
+                if let Some(i) = s.disk {
+                    assert!(
+                        s.machine.as_ref().unwrap().disks[i].eligible
+                            || s.screen == Screen::Menu
+                            || s.screen == Screen::Fail(nyra_installer::state::Failure::NoDisk)
+                            || matches!(s.screen, Screen::Fail(_))
+                    );
+                }
+                if s.screen == Screen::Installing {
+                    assert!(
+                        s.fields.iter().all(|f| f.is_empty()),
+                        "secrets stay after the start"
+                    );
+                }
+                let list = items(s);
+                if !list.is_empty() && s.overlay == nyra_installer::state::Overlay::None {
+                    assert!(s.focus < list.len(), "{:?} focus {}", s.screen, s.focus);
+                    assert!(
+                        list[s.focus].enabled,
+                        "{:?} focus on an item that is off",
+                        s.screen
+                    );
+                }
+                if count % 41 == 0 {
+                    let f = frame(s);
+                    assert_eq!((f.grid.w, f.grid.h), (s.w.max(1), s.h.max(1)));
+                    assert!(f.cursor.0 < f.grid.w && f.cursor.1 < f.grid.h);
+                    let text = f.grid.to_text(true);
+                    assert!(
+                        text.chars()
+                            .all(|c| c == '\n' || (' '..='~').contains(&c) || "’“”·…".contains(c)),
+                        "{text}"
+                    );
+                    // A secret is on the screen only if the box is ticked or it was typed in a plain field.
+                    let plain = [
+                        nyra_installer::state::Fld::Name,
+                        nyra_installer::state::Fld::Confirm,
+                    ]
+                    .iter()
+                    .any(|f| s.field(*f).as_str().contains("correct"));
+                    assert!(s.show || plain || !text.contains("correct horse"));
+                    let bytes = paint(painted.as_ref(), &f, caps);
+                    assert!(!bytes.is_empty());
+                    painted = Some(f);
+                }
             }
         }
     }
     // The walk got to every kind of screen, not just the first few.
-    for want in ["Menu", "Computer", "Release", "Disk"] {
+    for want in [
+        "Menu",
+        "Computer",
+        "Release",
+        "Disk",
+        "Encryption",
+        "DiskPassword",
+        "Admin",
+        "Review",
+        "Installing",
+        "RecoveryKey",
+        "BootKey",
+        "Done",
+    ] {
         assert!(visited.contains(want), "never reached {want}: {visited:?}");
     }
     assert!(
-        visited.iter().any(|v| v.starts_with("Fail(")),
+        visited.iter().any(|v| v.starts_with("Error(")),
         "{visited:?}"
     );
 }

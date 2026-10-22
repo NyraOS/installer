@@ -16,6 +16,9 @@ import sys
 import termios
 import time
 
+PW = "correct horse 42"
+
+
 class Screen:
     def __init__(self, w, h):
         self.w, self.h = w, h
@@ -161,21 +164,47 @@ class Session:
 ENTER, DOWN, UP, TAB, ESC = "\r", "\x1b[B", "\x1b[A", "\t", "\x1b"
 
 
-def test_walk(binary, golden):
-    # The steps in order, a disk is chosen, and Esc goes back.
+def to_review(s, password=False):
+    s.wait_for("Welcome to Nyra OS.")
+    s.keys(ENTER)
+    s.wait_for("Checking this computer")
+    s.keys(ENTER)
+    s.wait_for("You are installing this release")
+    s.keys(ENTER)
+    s.wait_for("Choose the disk for Nyra OS")
+    s.keys(ENTER)
+    s.wait_for("How should the disk unlock?")
+    s.keys(ENTER)
+    s.wait_for("Create the administrator")
+    s.keys("maria", ENTER, PW, ENTER, PW, TAB, TAB, ENTER)
+    s.wait_for("Ready to install")
+
+
+def start(s):
+    s.keys("sda", ENTER, ENTER)
+
+
+def test_full_install(binary, golden):
     s = Session(binary, "ok")
     try:
-        s.wait_for("Welcome to Nyra OS.")
+        to_review(s)
+        assert PW not in s.screen.text()
+        start(s)
+        s.wait_for("Installing Nyra OS")
+        s.wait_for("Please wait")
+        s.wait_for("Your recovery key", 15)
         s.keys(ENTER)
-        s.wait_for("[ok] TPM found")
+        s.wait_for("would be here")
         s.keys(ENTER)
-        s.wait_for("Compare these values with the release page")
+        s.wait_for("Register the Secure Boot key", 15)
         s.keys(ENTER)
-        s.wait_for("Choose the disk for Nyra OS")
-        assert "Not available" in s.screen.text() and "You started from this disk" in s.screen.text()
-        s.keys(ESC)
-        s.wait_for("Compare these values")
+        s.wait_for("would be here")
+        s.keys(ENTER)
+        s.wait_for("Nyra OS is installed", 15)
         assert s.screen.overflow == 0
+        s.keys(ENTER)  # Restart now
+        assert s.wait_exit() == 0
+        assert PW.encode() not in s.raw
     finally:
         s.close()
 
@@ -333,6 +362,49 @@ def test_quiet_when_idle(binary, golden):
         time.sleep(2)
         s.pump(0.01)
         assert ticks() - before <= 1, "the installer uses the CPU while idle"
+    finally:
+        s.close()
+
+
+def test_failures(binary, golden):
+    for scenario, title, disk in [
+        ("image-fail", "The Nyra OS image didn’t pass the check.", "Nothing on your disks was changed."),
+        ("write-fail", "Could not write to the disk.", "The disk sda was changed"),
+        ("die", "The installation stopped unexpectedly.", "may have been changed"),
+        ("mok-fail", "The Secure Boot key couldn’t be registered.", "won’t start until the key is registered"),
+    ]:
+        s = Session(binary, scenario)
+        try:
+            to_review(s)
+            start(s)
+            if scenario == "mok-fail":
+                s.wait_for("Your recovery key", 15)
+                s.keys(ENTER)
+                s.wait_for("would be here")
+                s.keys(ENTER)
+                s.wait_for("Register the Secure Boot key", 15)
+                s.keys(ENTER)
+                s.wait_for("would be here")
+                s.keys(ENTER)
+            s.wait_for(title, 15)
+            s.wait_for(disk, 2)
+            assert "Details: d" in s.screen.text()
+            s.keys("d")
+            s.wait_for("Details")
+            s.keys(ESC)
+            s.wait_for(title)
+        finally:
+            s.close()
+
+
+def test_cancel(binary, golden):
+    s = Session(binary, "ok")
+    try:
+        to_review(s)
+        start(s)
+        s.wait_for("Esc cancel")
+        s.keys(ESC)
+        s.wait_for("Choose the disk for Nyra OS", 5)
     finally:
         s.close()
 

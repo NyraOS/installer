@@ -1,0 +1,40 @@
+Nyra OS installer                                                                                    7 of 8 · Installing
+                                                                                                                        
+  Installing Nyra OS                                                                                                    
+                                                                                                                        
+  [ok] Checked the signature and the image                                                                              
+  [..] Preparing the disk                                                                                               
+  [  ] Installing Nyra OS                                                                                               
+  [  ] Protecting the disk                                                                                              
+  [  ] Final checks                                                                                                     
+                                                                                                                        
+  Don’t turn off or restart the computer. This can take several minutes.                                                
+                                                                                                                        
+  Time so far: 02:14                                                                                                    
+  Log: /run/nyra-installer/install.log                                                                                  
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+Please wait                                                                                                             

@@ -1,0 +1,40 @@
+Nyra OS installer                                                                                          8 of 8 · Done
+                                                                                                                        
+  Nyra OS is installed                                                                                                  
+                                                                                                                        
+  One more step before it starts. A blue screen asks you to trust the Nyra                                              
+  key. It appears right after the restart and waits only 10 seconds.                                                    
+                                                                                                                        
+  1. Remove the installation USB drive or disc.                                                                         
+  2. Restart. When the blue screen says “Press any key”, press a key.                                                   
+  3. Choose “Enroll MOK”.                                                                                               
+  4. Choose “View key 0” and compare the name and fingerprint with the ones                                             
+     below. Then choose “Continue”.                                                                                     
+  5. Choose “Continue”, then “Yes”.                                                                                     
+  6. Type the one-time password. Then choose “Reboot”.                                                                  
+                                                                                                                        
+  Nyra OS Secure Boot 2026                                                                                              
+    0B:30:55:7A:9F:C4:E9:0E:33:58:7D:A2:C7:EC:11:36                                                                     
+    5B:80:A5:CA:EF:14:39:5E:83:A8:CD:F2:17:3C:61:86                                                                     
+                                                                                                                        
+  Never choose “Change Secure Boot state” or “Delete MOK”.                                                              
+                                                                                                                        
+  > Restart now                                                                                                         
+    Show these steps again                                                                                              
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+Up/Down choose · Enter select · ? help                                                                                  

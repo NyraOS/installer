@@ -1,0 +1,4 @@
+Nyra OS installer          8 of 8 · Done
+Nyra OS is installed.                   
+Next: the blue screen. Down: steps      
+Enter: restart · Down: steps            

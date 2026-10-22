@@ -1,0 +1,15 @@
+Nyra OS installer                      7 of 8 · Recovery key
+Write the next screen down.                                 
+> Show the recovery key                                     
+- Write it down on paper, or take a photo of the screen     
+  with your phone.                                          
+- It is shown only once and saved nowhere on this           
+  computer.                                                 
+- Anyone who has it can open the disk. Keep it somewhere    
+  safe.                                                     
+- Then you type it back, to check that you copied it        
+  right.                                                    
+                                                            
+                                                            
+                                                            
+Enter select                                                

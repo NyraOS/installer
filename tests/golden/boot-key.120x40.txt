@@ -1,0 +1,40 @@
+Nyra OS installer                                                                               8 of 8 · Secure Boot key
+                                                                                                                        
+  Register the Secure Boot key                                                                                          
+                                                                                                                        
+  Nyra OS starts from files signed with a Nyra key. Your computer has to                                                
+  trust that key once. For this you choose a one-time password now, and                                                 
+  type it on a blue screen right after the restart.                                                                     
+                                                                                                                        
+  - Use letters and digits only, about 8 of them.                                                                       
+  - You need it only once. Nothing else uses it.                                                                        
+                                                                                                                        
+  Next, you type the password twice. Nothing shows while you type.                                                      
+                                                                                                                        
+  > Choose the one-time password                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+Enter select · ? help                                                                                                   

@@ -6,7 +6,7 @@
 #![forbid(unsafe_code)]
 
 use nyra_installer::app::{App, Outer};
-use nyra_installer::backend::{Fake, SCENARIOS};
+use nyra_installer::backend::{Fake, Handoff, SCENARIOS};
 use nyra_installer::render::{paint, Frame};
 use nyra_installer::screens::frame;
 use nyra_installer::state::Event;
@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 
 const ESC_WAIT: Duration = Duration::from_millis(50);
 const SIZE_CHECK: Duration = Duration::from_secs(1);
+const TICK: Duration = Duration::from_secs(5);
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -26,9 +27,7 @@ fn main() -> ExitCode {
         _ => None,
     };
     let Some(fake) = fake else {
-        eprintln!(
-            "The installer has only a scripted backend so far. Usage: nyra-installer --fake SCENARIO"
-        );
+        eprintln!("The installer has only a scripted backend so far. Usage: nyra-installer --fake SCENARIO");
         eprintln!("Scenarios: {}", SCENARIOS.join(", "));
         return ExitCode::from(2);
     };
@@ -58,33 +57,71 @@ fn measure(term: &Term) -> (usize, usize) {
 fn run(app: &mut App, term: &Term, caps: Caps) -> String {
     let mut parser = Parser::new();
     let mut painted: Option<Frame> = None;
+    let mut next_event: Option<(Instant, nyra_installer::backend::BackendEvent)> = None;
+    let mut started: Option<Instant> = None;
+    let mut last_tick = 0;
     let mut last_size_check = Instant::now();
     loop {
-        let f = frame(&app.state);
-        if painted.as_ref() != Some(&f) {
-            write(&paint(painted.as_ref(), &f, caps));
-            painted = Some(f);
+        if !app.state.handed_off {
+            let f = frame(&app.state);
+            if painted.as_ref() != Some(&f) {
+                write(&paint(painted.as_ref(), &f, caps));
+                painted = Some(f);
+            }
         }
-        // Wait for a key; a half-read escape sequence gets only a moment.
-        let mut wait = (last_size_check + SIZE_CHECK).saturating_duration_since(Instant::now());
+        if next_event.is_none() {
+            next_event = app
+                .backend
+                .next_event()
+                .map(|(ms, e)| (Instant::now() + Duration::from_millis(ms), e));
+        }
+        // How long to wait: for the next thing that is due.
+        let now = Instant::now();
+        let mut due = vec![last_size_check + SIZE_CHECK];
+        if let Some((at, _)) = next_event {
+            due.push(at);
+        }
+        if let Some(s) = started {
+            due.push(s + TICK * (last_tick as u32 + 1));
+        }
+        let mut wait = due
+            .into_iter()
+            .min()
+            .map_or(SIZE_CHECK, |d| d.saturating_duration_since(now));
         if parser.pending() {
             wait = wait.min(ESC_WAIT);
         }
+        let mut events: Vec<Event> = Vec::new();
         let mut keys = Vec::new();
         match term.read(Some(wait)) {
             Some(bytes) if bytes.is_empty() => return String::new(), // the terminal went away
             Some(bytes) => parser.feed(&bytes, &mut keys),
-            None if parser.pending() => parser.timeout(&mut keys),
-            None => {}
+            None => {
+                if parser.pending() {
+                    parser.timeout(&mut keys);
+                }
+            }
         }
-        let mut events: Vec<Event> = keys
-            .into_iter()
-            .filter(|k| !matches!(k, Key::Pos(..)))
-            .map(Event::Key)
-            .collect();
-        // A console that sends no signal on resize is asked once a second.
-        if last_size_check.elapsed() >= SIZE_CHECK {
-            last_size_check = Instant::now();
+        events.extend(
+            keys.into_iter()
+                .filter(|k| !matches!(k, Key::Pos(..)))
+                .map(Event::Key),
+        );
+        let now = Instant::now();
+        if next_event.as_ref().is_some_and(|(at, _)| *at <= now) {
+            if let Some((_, e)) = next_event.take() {
+                events.push(Event::Backend(e));
+            }
+        }
+        if let Some(s) = started {
+            let secs = now.duration_since(s).as_secs();
+            if secs / 5 > last_tick {
+                last_tick = secs / 5;
+                events.push(Event::Tick(secs));
+            }
+        }
+        if now.duration_since(last_size_check) >= SIZE_CHECK {
+            last_size_check = now;
             if let Some((w, h)) = term.size() {
                 if (w, h) != (app.state.w, app.state.h) {
                     events.push(Event::Resize(w, h));
@@ -94,7 +131,22 @@ fn run(app: &mut App, term: &Term, caps: Caps) -> String {
         for ev in events {
             for outer in app.dispatch(ev) {
                 match outer {
-                    Outer::Shell => hand_over(term, &mut painted),
+                    Outer::Started => {
+                        started = Some(Instant::now());
+                        last_tick = 0;
+                    }
+                    Outer::Go(kind) => {
+                        hand_over(
+                            term,
+                            &mut painted,
+                            match kind {
+                                Handoff::RecoveryKey => "the recovery key",
+                                Handoff::MokPassword => "the Secure Boot key password",
+                            },
+                        );
+                        app.backend.go();
+                    }
+                    Outer::Shell => hand_over(term, &mut painted, "a shell"),
                     Outer::Reboot => {
                         return "Restart (scripted backend: nothing is restarted).".to_string()
                     }
@@ -113,10 +165,10 @@ fn run(app: &mut App, term: &Term, caps: Caps) -> String {
 }
 
 /// The terminal goes to somebody else for a while. The scripted backend only prints a line.
-fn hand_over(term: &Term, painted: &mut Option<Frame>) {
+fn hand_over(term: &Term, painted: &mut Option<Frame>, what: &str) {
     term.suspend();
     println!("{}", texts::SHELL_WARNING);
-    println!("[scripted] a shell would be here. Press Enter.");
+    println!("[scripted] {what} would be here. Press Enter.");
     let mut line = String::new();
     let _ = std::io::stdin().lock().read_line(&mut line);
     let _ = term.resume();

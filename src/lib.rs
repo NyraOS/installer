@@ -8,6 +8,7 @@
 pub mod app;
 pub mod backend;
 pub mod render;
+pub mod rules;
 pub mod screens;
 pub mod state;
 pub mod term;

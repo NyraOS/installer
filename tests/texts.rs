@@ -8,7 +8,7 @@
 use nyra_installer::app::App;
 use nyra_installer::backend::Fake;
 use nyra_installer::screens::frame;
-use nyra_installer::state::{Failure, Screen};
+use nyra_installer::state::{DiskState, ErrKind, Failure, Fld, Screen};
 
 const SOURCE: &str = include_str!("../src/texts.rs");
 
@@ -141,7 +141,7 @@ fn check_capitals(text: &str) -> Vec<String> {
 #[test]
 fn every_text_follows_the_writing_rules() {
     let lits = literals();
-    assert!(lits.len() > 100, "found only {} texts", lits.len());
+    assert!(lits.len() > 150, "found only {} texts", lits.len());
     let mut bad = Vec::new();
     for l in &lits {
         // A parameter, with or without a format (`{mm:02}`), is just a value.
@@ -198,6 +198,12 @@ fn every_error_has_something_to_do() {
             .map(|l| l.text.clone())
     };
     for k in [
+        "X_CHECK",
+        "X_MEMORY",
+        "X_WRITE",
+        "X_PROTECT",
+        "X_MOK",
+        "X_STOPPED",
         "FAIL_BIOS",
         "FAIL_SB",
         "FAIL_SHIM",
@@ -255,6 +261,20 @@ fn screens() -> Vec<Screen> {
         Screen::Fail(Failure::NoDisk),
         Screen::Release,
         Screen::Disk,
+        Screen::Encryption,
+        Screen::DiskPassword,
+        Screen::Admin,
+        Screen::Review,
+        Screen::Installing,
+        Screen::RecoveryKey,
+        Screen::BootKey,
+        Screen::Done,
+        Screen::Error(ErrKind::Check, DiskState::Unchanged),
+        Screen::Error(ErrKind::Memory, DiskState::Unchanged),
+        Screen::Error(ErrKind::Write, DiskState::Changed),
+        Screen::Error(ErrKind::Protect, DiskState::Changed),
+        Screen::Error(ErrKind::Mok, DiskState::Installed),
+        Screen::Error(ErrKind::Stopped, DiskState::Maybe),
     ]
 }
 
@@ -263,6 +283,9 @@ fn state_for(scenario: &str, screen: Screen, w: usize, h: usize) -> App {
     a.state.machine = Some(a.backend.machine.clone());
     a.state.disk = Some(0);
     a.state.screen = screen;
+    for c in "maria".chars() {
+        a.state.fields[Fld::Name as usize].push(c);
+    }
     a
 }
 

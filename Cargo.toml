@@ -23,3 +23,5 @@ strip = true
 # Safe wrappers for the terminal: raw mode, window size, poll. No `unsafe` of our own (rustix uses
 # raw syscalls on Linux, without libc).
 rustix = { version = "1", default-features = false, features = ["std", "termios", "event", "stdio"] }
+# Wipes passwords from memory (volatile writes the compiler may not remove).
+zeroize = { version = "1", default-features = false, features = ["alloc"] }

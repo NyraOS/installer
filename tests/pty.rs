@@ -26,8 +26,8 @@ fn run(name: &str) {
 }
 
 #[test]
-fn walk() {
-    run("walk");
+fn full_install() {
+    run("full_install");
 }
 
 #[test]
@@ -78,6 +78,16 @@ fn keys() {
 #[test]
 fn quiet_when_idle() {
     run("quiet_when_idle");
+}
+
+#[test]
+fn failures() {
+    run("failures");
+}
+
+#[test]
+fn cancel() {
+    run("cancel");
 }
 
 #[test]
