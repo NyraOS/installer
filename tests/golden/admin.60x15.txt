@@ -1,0 +1,15 @@
+Nyra OS installer                     5 of 8 · Administrator
+> Name              maria                                   
+  Password          ************                            
+  Repeat password   ************                            
+  [ ] Show the characters                                   
+  Continue                                                  
+  Back                                                      
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+Tab next · Enter continue · Esc back                        

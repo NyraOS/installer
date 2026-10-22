@@ -1,0 +1,24 @@
+Nyra OS installer                                         5 of 8 · Administrator
+                                                                                
+  Create the administrator                                                      
+                                                                                
+  You use this account to sign in and to change the system. The password        
+  can’t be empty.                                                               
+                                                                                
+  > Name              maria                                                     
+    Password          ************                                              
+    Repeat password   ************                                              
+    [ ] Show the characters                                                     
+                                                                                
+  The name uses lowercase letters, digits, - and _, and starts with a           
+  letter. The password needs at least 12 characters.                            
+                                                                                
+    Continue                                                                    
+    Back                                                                        
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Tab next field · Enter continue · Esc back · ? help                             

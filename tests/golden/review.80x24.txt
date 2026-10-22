@@ -1,0 +1,24 @@
+Nyra OS installer                                                6 of 8 · Review
+                                                                                
+  Ready to install                                                              
+                                                                                
+  Disk            sda · 477 GB · Samsung SSD 870 EVO                            
+  Unlock          This computer’s TPM                                           
+  Administrator   maria                                                         
+  Release         2026.10.7                                                     
+                                                                                
+  Everything on sda will be erased, including Windows and the files on it.      
+  This can’t be undone.                                                         
+                                                                                
+  To go on, type the name of the disk: sda                                      
+  > Disk name   sda                                                             
+                                                                                
+    Go back                                                                     
+    Erase sda and install                                                       
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Tab next · Enter select · Esc back · ? help                                     

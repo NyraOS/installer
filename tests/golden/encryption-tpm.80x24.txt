@@ -1,0 +1,24 @@
+Nyra OS installer                                       4 of 8 · Disk encryption
+                                                                                
+  How should the disk unlock?                                                   
+                                                                                
+  Nyra OS always encrypts the disk, so nobody can read it without a key.        
+                                                                                
+  > Unlock with this computer’s TPM (recommended)                               
+      The TPM is a security chip. The disk opens by itself at startup, but      
+      only when this computer starts the genuine Nyra OS. You type nothing.     
+      Whoever turns the computer on reaches the sign-in screen.                 
+                                                                                
+    Unlock with a password                                                      
+      You type a password every time the computer starts.                       
+                                                                                
+  You also get a recovery key. It opens the disk if the TPM or the password     
+  stops working.                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Up/Down choose · Enter continue · Esc back · ? help                             

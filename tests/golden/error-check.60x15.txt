@@ -1,0 +1,15 @@
+Nyra OS installer                               Check failed
+The image didn’t pass the check.                            
+Nothing on your disks was changed.                          
+> Restart                                                   
+  Open a shell (a command line, for recovery and experts)   
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+Enter: restart · d details                                  

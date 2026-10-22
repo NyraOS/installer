@@ -1,0 +1,15 @@
+Nyra OS installer                              8 of 8 · Done
+Nyra OS is installed.                                       
+Next: the blue screen. Down: steps                          
+1. In UTM, remove the installer disc: open the CD/DVD       
+   drive menu and choose “Eject”. Click the UTM window so   
+   it gets your keyboard.                                   
+2. Restart. When the blue screen says “Press any key”,      
+   press a key.                                             
+3. Choose “Enroll MOK”.                                     
+4. Choose “View key 0” and compare the name and             
+   fingerprint with the ones below. Then choose             
+   “Continue”.                                              
+5. Choose “Continue”, then “Yes”.                           
+6. Type the one-time password. Then choose “Reboot”.        
+Enter: restart · Down: steps                                

@@ -30,7 +30,8 @@ The last one needs [cargo-deny](https://github.com/EmbarkStudios/cargo-deny).
 - `golden.rs`: every screen at four sizes against the files in `tests/golden/`. A changed screen
   shows as a diff of the whole screen. `UPDATE_GOLDEN=new cargo test` writes the files that are
   missing; to change a file, change it by hand and look at the diff.
-- `flow.rs`: the state machine, step by step.
+- `flow.rs`: the state machine, step by step: the typed disk name, the rules for names and
+  passwords, cancelling, every kind of failure, events that arrive out of order.
 - `keys.rs`: the key parser, and 800,000 random events that must never panic and must keep the
   rules of the state machine.
 - `texts.rs`: the text checker. It reads `src/texts.rs` and holds each text to the writing rules
@@ -49,7 +50,9 @@ values as parameters, never pieces joined in code. Only printable ASCII and the 
 
 Each one needs a reason, and `cargo deny` must stay green:
 
-- `rustix`: raw mode, window size and `poll` on the terminal, without `unsafe` code of our own.
+- `rustix`: raw mode, window size and `poll` on the terminal, and the limits that keep a crash from
+  writing passwords to a core file, without `unsafe` code of our own.
+- `zeroize`: wipes passwords from memory with volatile writes the compiler may not remove.
 
 ## Continuous integration
 

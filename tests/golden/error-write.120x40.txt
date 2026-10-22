@@ -1,0 +1,40 @@
+Nyra OS installer                                                                                    7 of 8 · Installing
+                                                                                                                        
+  Could not write to the disk.                                                                                          
+                                                                                                                        
+  The disk may be failing, or it was disconnected during the installation.                                              
+                                                                                                                        
+  The disk sda was changed and can’t be used as it is. Install again from                                               
+  the start. Nothing on it can be kept.                                                                                 
+                                                                                                                        
+  What you can do: check the cable or try another disk, then choose “Start                                              
+  again”.                                                                                                               
+                                                                                                                        
+  > Start again                                                                                                         
+    Open a shell (a command line, for recovery and experts)                                                             
+    Restart                                                                                                             
+                                                                                                                        
+  Details: d · Log: /run/nyra-installer/install.log (gone at restart)                                                   
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+Up/Down choose · Enter select · d details · ? help                                                                      

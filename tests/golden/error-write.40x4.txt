@@ -1,0 +1,4 @@
+Nyra OS installer    Installation failed
+Could not write to the disk.            
+sda was changed. Install again.         
+Enter: start again · d details          

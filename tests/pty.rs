@@ -26,8 +26,8 @@ fn run(name: &str) {
 }
 
 #[test]
-fn walk() {
-    run("walk");
+fn full_install() {
+    run("full_install");
 }
 
 #[test]
@@ -81,6 +81,16 @@ fn quiet_when_idle() {
 }
 
 #[test]
+fn failures() {
+    run("failures");
+}
+
+#[test]
+fn cancel() {
+    run("cancel");
+}
+
+#[test]
 fn exit_clears_the_screen() {
     run("exit_clears_the_screen");
 }
@@ -98,4 +108,14 @@ fn huge_size() {
 #[test]
 fn terminal_gone() {
     run("terminal_gone");
+}
+
+#[test]
+fn pasted_burst() {
+    run("pasted_burst");
+}
+
+#[test]
+fn core_dumps_off() {
+    run("core_dumps_off");
 }

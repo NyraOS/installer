@@ -4,9 +4,12 @@
 //! window with the title and bottom bars. No I/O. The layout is a pure function of the state, so
 //! nothing is remembered from an earlier size.
 
-use crate::backend::{Arch, Content, Disk};
+use crate::backend::{Arch, Content, Disk, Step, Unlock, STEPS};
 use crate::render::{clip, wrap, Frame, Grid, Style};
-use crate::state::{items, reason_label, Failure, Overlay, Screen, Slot, State};
+use crate::state::{
+    arch_is_utm, items, reason_label, Btn, DiskState, ErrKind, Failure, Fld, Item, Overlay, Screen,
+    Slot, State,
+};
 use crate::texts as t;
 
 pub type Row = Vec<(Style, String)>;
@@ -85,6 +88,12 @@ impl<'a> B<'a> {
             self.line(indent, &l, st);
         }
     }
+    /// A paragraph whose lines after the first start `hang` columns further in.
+    fn para_hang(&mut self, indent: usize, hang: usize, text: &str, st: Style) {
+        for l in wrap(text, self.right().saturating_sub(indent), hang) {
+            self.line(indent, &l, st);
+        }
+    }
     /// Values that must not be cut: hex strings, addresses.
     fn raw(&mut self, indent: usize, text: &str) {
         for l in wrap(text, self.w.saturating_sub(2 + indent), 0) {
@@ -140,13 +149,28 @@ impl<'a> B<'a> {
     }
     /// A button or a choice: `> label` when focused.
     fn item(&mut self, indent: usize, label: &str, st: Style) {
+        self.item_marked(indent, label, st, "  ");
+    }
+    /// The button that erases: red and bold when it can be pressed, and a plain `-` in front of
+    /// it when it can’t yet, so that colour is not the only difference.
+    fn danger(&mut self, indent: usize, label: &str) {
+        if self.slot_enabled() {
+            self.item_marked(indent, label, Style::RED.with(Style::BOLD), "  ");
+        } else {
+            self.item_marked(indent, label, Style::NONE, "- ");
+        }
+    }
+    /// An item; `off` is what stands before it when it is turned off.
+    fn item_marked(&mut self, indent: usize, label: &str, st: Style, off: &str) {
         let enabled = self.slot_enabled();
         let f = self.focus_here(enabled);
         let lines = wrap(label, self.right().saturating_sub(indent + 2), 0);
         let (marker, style) = if f {
             ("> ", st.with(Style::REVERSE))
-        } else {
+        } else if enabled || off == "  " {
             ("  ", st)
+        } else {
+            (off, st)
         };
         self.push_item(
             vec![sp(indent), (style, format!("{marker}{}", lines[0]))],
@@ -157,6 +181,65 @@ impl<'a> B<'a> {
             self.rows.push(vec![sp(indent + 2), (st, l.clone())]);
         }
     }
+    /// A text field. A secret shows as a fixed run of stars, never its length.
+    fn field(&mut self, indent: usize, lw: usize, label: &str, f: Fld, secret: bool) {
+        let focused = self.focus_here(true);
+        let v = self.s.field(f);
+        let shown = if secret && !self.s.show {
+            if v.is_empty() {
+                String::new()
+            } else {
+                "*".repeat(12)
+            }
+        } else {
+            v.as_str()
+                .chars()
+                .map(|c| {
+                    if c.is_ascii_graphic() || c == ' ' {
+                        c
+                    } else {
+                        '?'
+                    }
+                })
+                .collect()
+        };
+        let room = self.w.saturating_sub(indent + 2 + lw + 1).max(1);
+        let n = shown.chars().count();
+        let shown: String = if n > room {
+            shown.chars().skip(n - room).collect()
+        } else {
+            shown
+        };
+        let (marker, style) = if focused {
+            ("> ", Style::REVERSE)
+        } else {
+            ("  ", Style::NONE)
+        };
+        let col = indent + 2 + lw + shown.chars().count();
+        let row = vec![
+            sp(indent),
+            (style, format!("{marker}{label:<lw$}")),
+            (Style::NONE, shown),
+        ];
+        self.push_item(row, focused, col.min(self.w.saturating_sub(1)));
+    }
+    fn checkbox(&mut self, indent: usize, label: &str, on: bool) {
+        let f = self.focus_here(true);
+        let (marker, style) = if f {
+            ("> ", Style::REVERSE)
+        } else {
+            ("  ", Style::NONE)
+        };
+        let row = vec![
+            sp(indent),
+            (
+                style,
+                format!("{marker}[{}] {label}", if on { "x" } else { " " }),
+            ),
+        ];
+        self.push_item(row, f, indent + 2 + 1);
+    }
+
     fn finish(self, title: [String; 2], footer: [&str; 3], reading: bool, indicator: bool) -> Page {
         Page {
             title,
@@ -206,6 +289,15 @@ pub fn page(s: &State) -> Page {
         Screen::Fail(f) => fail(s, f, c),
         Screen::Release => release(s, c),
         Screen::Disk => disk(s, c),
+        Screen::Encryption => encryption(s, c),
+        Screen::DiskPassword => password(s, c),
+        Screen::Admin => password(s, c),
+        Screen::Review => review(s, c),
+        Screen::Installing => installing(s, c),
+        Screen::RecoveryKey => recovery(s, c),
+        Screen::BootKey => boot_key(s, c),
+        Screen::Done => done(s, c),
+        Screen::Error(k, d) => error(s, k, d, c),
     }
 }
 
@@ -603,15 +695,458 @@ fn fs_name(fs: &str) -> String {
     }
 }
 
+fn encryption(s: &State, c: bool) -> Page {
+    let mut b = B::new(s);
+    let title = titles(t::T_ENCRYPTION, t::T_ENCRYPTION_S);
+    let footers = [t::F_ENCRYPTION, t::F_DISK_S, t::F_DISK_S];
+    let tpm = s.tpm();
+    if c {
+        if tpm {
+            b.item(0, t::E_TPM_S, Style::NONE);
+            b.line(2, t::E_TPM_WHAT_S, Style::NONE);
+            b.item(0, t::E_PASSWORD, Style::NONE);
+            b.line(2, t::E_PASSWORD_WHAT_S, Style::NONE);
+        } else {
+            // The TPM item has no row of its own: it points at the note about it.
+            b.items.push(1);
+            b.item(0, t::E_PASSWORD, Style::NONE);
+            b.line(2, t::E_NO_TPM_S, Style::NONE);
+        }
+        return b.finish(title, footers, false, false);
+    }
+    b.heading(t::E_TITLE);
+    b.para(2, t::E_ALWAYS, Style::NONE);
+    b.blank();
+    if tpm {
+        b.item(2, t::E_TPM, Style::NONE);
+        b.para(6, t::E_TPM_WHAT, Style::NONE);
+    } else {
+        b.item(2, t::E_TPM_PLAIN, Style::NONE);
+        b.para(6, t::E_TPM_NA, Style::NONE);
+    }
+    b.blank();
+    b.item(2, t::E_PASSWORD, Style::NONE);
+    b.para(6, t::E_PASSWORD_WHAT, Style::NONE);
+    b.blank();
+    b.para(
+        2,
+        if tpm {
+            t::E_RECOVERY_TPM
+        } else {
+            t::E_RECOVERY
+        },
+        Style::NONE,
+    );
+    b.finish(title, footers, false, false)
+}
+
+fn problem_text(p: crate::rules::Problem) -> &'static str {
+    use crate::rules::Problem::*;
+    match p {
+        NameForm => t::PROBLEM_NAME_FORM,
+        NameReserved => t::PROBLEM_NAME_RESERVED,
+        PasswordTooShort => t::PROBLEM_SHORT,
+        PasswordTooLong => t::PROBLEM_LONG,
+        PasswordTooCommon => t::PROBLEM_COMMON,
+        PasswordCharacters => t::PROBLEM_CHARS,
+        PasswordsDiffer => t::PROBLEM_MISMATCH,
+        PasswordIsName => t::PROBLEM_SAME,
+    }
+}
+
+/// The disk password and the administrator forms.
+fn password(s: &State, c: bool) -> Page {
+    let mut b = B::new(s);
+    let admin = s.screen == Screen::Admin;
+    let title = if admin {
+        titles(t::T_ADMIN, t::T_ADMIN)
+    } else {
+        titles(t::T_PASSWORD, t::T_PASSWORD_S)
+    };
+    let footers = [t::F_FORM, t::F_FORM_S, t::F_FORM_S];
+    let (pw, pw2) = if admin {
+        (Fld::AdminPw, Fld::AdminPw2)
+    } else {
+        (Fld::DiskPw, Fld::DiskPw2)
+    };
+    let error = s.problem.map(problem_text);
+    let ind = if c { 0 } else { 2 };
+    if c {
+        if let Some(e) = error {
+            for l in wrap(e, s.w, 0) {
+                b.line(0, &l, Style::RED);
+            }
+        }
+    } else {
+        b.heading(if admin { t::A_TITLE } else { t::P_TITLE });
+        b.para(2, if admin { t::A_WHAT } else { t::P_WHAT }, Style::NONE);
+        b.blank();
+    }
+    if admin {
+        b.field(ind, 18, t::L_NAME, Fld::Name, false);
+    }
+    b.field(ind, 18, t::L_PASSWORD, pw, true);
+    b.field(ind, 18, t::L_REPEAT, pw2, true);
+    b.checkbox(ind, t::L_SHOW, s.show);
+    if !c {
+        b.blank();
+        b.para(2, if admin { t::A_RULES } else { t::P_RULES }, Style::NONE);
+        b.blank();
+        if let Some(e) = error {
+            b.para(2, e, Style::RED);
+            b.blank();
+        }
+    }
+    b.item(ind, t::B_CONTINUE, Style::NONE);
+    b.item(ind, t::B_BACK, Style::NONE);
+    b.finish(title, footers, false, false)
+}
+
+fn review(s: &State, c: bool) -> Page {
+    let mut b = B::new(s);
+    let title = titles(t::T_REVIEW, t::T_REVIEW);
+    let footers = [t::F_REVIEW, t::F_FORM_S, t::F_FORM_S];
+    let Some(d) = s.chosen_disk() else {
+        return b.finish(title, footers, false, false);
+    };
+    let name = d.name.clone();
+    let erase = t::erase_button(&name);
+    if c {
+        b.para(0, &t::v_erase_s(&name, &name), Style::RED);
+        b.field(0, 12, t::L_DISK_NAME, Fld::Confirm, false);
+        b.item(0, t::B_GO_BACK, Style::NONE);
+        b.danger(0, &erase);
+        return b.finish(title, footers, false, false);
+    }
+    b.heading(t::V_TITLE);
+    b.kv(
+        2,
+        16,
+        t::V_DISK,
+        &t::v_disk(&name, &fmt_size(d.bytes), &d.model),
+    );
+    b.kv(
+        2,
+        16,
+        t::V_UNLOCK,
+        if s.unlock == Unlock::Tpm {
+            t::V_UNLOCK_TPM
+        } else {
+            t::V_UNLOCK_PASSWORD
+        },
+    );
+    b.kv(2, 16, t::V_ADMIN, s.field(Fld::Name).as_str());
+    b.kv(
+        2,
+        16,
+        t::V_RELEASE,
+        s.machine
+            .as_ref()
+            .map_or("", |m| m.release.version.as_str()),
+    );
+    b.blank();
+    let warn = match d.content() {
+        Content::Windows => t::v_erase_windows(&name),
+        Content::Data => t::v_erase_data(&name),
+        Content::Empty => t::v_erase_empty(&name),
+    };
+    b.para(2, &warn, Style::RED);
+    b.blank();
+    b.para(2, &t::v_type(&name), Style::NONE);
+    b.field(2, 12, t::L_DISK_NAME, Fld::Confirm, false);
+    b.blank();
+    b.item(2, t::B_GO_BACK, Style::NONE);
+    b.danger(2, &erase);
+    b.finish(title, footers, false, false)
+}
+
+fn step_text(step: Step, done: bool) -> &'static str {
+    match (step, done) {
+        (Step::Verify, false) => t::I_VERIFY,
+        (Step::Prepare, false) => t::I_PREPARE,
+        (Step::Install, false) => t::I_INSTALL,
+        (Step::Protect, false) => t::I_PROTECT,
+        (Step::Final, false) => t::I_FINAL,
+        (Step::Verify, true) => t::I_VERIFY_DONE,
+        (Step::Prepare, true) => t::I_PREPARE_DONE,
+        (Step::Install, true) => t::I_INSTALL_DONE,
+        (Step::Protect, true) => t::I_PROTECT_DONE,
+        (Step::Final, true) => t::I_FINAL_DONE,
+    }
+}
+
+fn installing(s: &State, c: bool) -> Page {
+    let mut b = B::new(s);
+    let title = titles(t::T_INSTALLING, t::T_INSTALLING);
+    let wait = if s.progress.changed || s.cancelling {
+        t::F_INSTALLING_WAIT
+    } else {
+        t::F_INSTALLING_CANCEL
+    };
+    let wait_s = if s.progress.changed || s.cancelling {
+        t::F_INSTALLING_WAIT
+    } else {
+        t::F_INSTALLING_CANCEL_S
+    };
+    let footers = [wait, wait_s, wait_s];
+    let p = &s.progress;
+    let current = STEPS
+        .iter()
+        .position(|st| !p.done[st.index()])
+        .unwrap_or(STEPS.len() - 1);
+    if c {
+        let (tag, st) = if p.done[current] {
+            ("[ok]", Style::GREEN)
+        } else {
+            ("[..]", Style::NONE)
+        };
+        let text = t::i_step_s(
+            step_text(STEPS[current], p.done[current]),
+            current + 1,
+            STEPS.len(),
+        );
+        b.rows.push(vec![
+            (st, tag.to_string()),
+            (Style::NONE, format!(" {text}")),
+        ]);
+        b.line(0, t::I_WAIT_S, Style::NONE);
+        return b.finish(title, footers, true, false);
+    }
+    b.heading(t::I_TITLE);
+    for st in STEPS {
+        let i = st.index();
+        let (tag, style, text) = if p.done[i] {
+            ("[ok]", Style::GREEN, step_text(st, true))
+        } else if p.running == Some(st) || (p.running.is_none() && i == current && i == 0) {
+            ("[..]", Style::NONE, step_text(st, false))
+        } else {
+            ("[  ]", Style::NONE, step_text(st, false))
+        };
+        tagged(&mut b, tag, style, text);
+    }
+    b.blank();
+    b.para(
+        2,
+        if s.cancelling {
+            t::I_CANCELLING
+        } else {
+            t::I_WAIT
+        },
+        Style::NONE,
+    );
+    b.blank();
+    b.line(2, &t::i_time(s.elapsed / 60, s.elapsed % 60), Style::NONE);
+    b.line(2, &t::i_log(t::LOG_PATH), Style::NONE);
+    b.finish(title, footers, true, false)
+}
+
+fn bullets(b: &mut B, indent: usize, list: &[&str]) {
+    for p in list {
+        b.para_hang(indent, 2, &format!("- {p}"), Style::NONE);
+    }
+}
+
+fn recovery(s: &State, c: bool) -> Page {
+    let mut b = B::new(s);
+    let title = titles(t::T_RECOVERY, t::T_RECOVERY);
+    let footers = [t::F_HANDOFF, t::F_ENTER_S, t::F_HANDOFF_S];
+    let what = if s.unlock == Unlock::Tpm {
+        t::K_WHAT
+    } else {
+        t::K_WHAT_PASSWORD
+    };
+    if c {
+        b.line(0, t::K_WRITE_S, Style::NONE);
+        b.item(0, t::B_SHOW_KEY, Style::NONE);
+        for p in t::K_POINTS {
+            b.para_hang(0, 2, &format!("- {p}"), Style::NONE);
+        }
+        return b.finish(title, footers, false, false);
+    }
+    b.heading(t::K_TITLE);
+    b.para(2, what, Style::NONE);
+    b.blank();
+    bullets(&mut b, 2, &t::K_POINTS);
+    b.blank();
+    b.item(2, t::B_SHOW_KEY, Style::NONE);
+    b.finish(title, footers, false, false)
+}
+
+fn boot_key(s: &State, c: bool) -> Page {
+    let mut b = B::new(s);
+    let title = titles(t::T_BOOT_KEY, t::T_BOOT_KEY_S);
+    let footers = [t::F_HANDOFF, t::F_ENTER_S, t::F_HANDOFF_S];
+    if c {
+        b.line(0, t::O_ONE_TIME_S, Style::NONE);
+        b.item(0, t::B_CHOOSE_OTP, Style::NONE);
+        for p in t::O_POINTS {
+            b.para_hang(0, 2, &format!("- {p}"), Style::NONE);
+        }
+        b.para(0, t::O_NEXT, Style::NONE);
+        return b.finish(title, footers, false, false);
+    }
+    b.heading(t::O_TITLE);
+    b.para(2, t::O_WHAT, Style::NONE);
+    b.blank();
+    bullets(&mut b, 2, &t::O_POINTS);
+    b.blank();
+    b.para(2, t::O_NEXT, Style::NONE);
+    b.blank();
+    b.item(2, t::B_CHOOSE_OTP, Style::NONE);
+    b.finish(title, footers, false, false)
+}
+
+fn done(s: &State, c: bool) -> Page {
+    let mut b = B::new(s);
+    let title = titles(t::T_DONE, t::T_DONE);
+    let footers = [t::F_DONE, t::F_DONE_S, t::F_DONE_S];
+    let utm = arch_is_utm(s);
+    let steps: Vec<&str> = std::iter::once(if utm { t::Z_STEP1_UTM } else { t::Z_STEP1 })
+        .chain(t::Z_STEPS)
+        .collect();
+    let (cert, fp) = s.machine.as_ref().map_or((String::new(), Vec::new()), |m| {
+        (m.release.cert_name.clone(), m.release.fingerprint.clone())
+    });
+    let never = if utm { t::Z_NEVER_UTM } else { t::Z_NEVER };
+    let numbered = |b: &mut B, ind: usize| {
+        for (i, st) in steps.iter().enumerate() {
+            b.para_hang(ind, 3, &format!("{}. {st}", i + 1), Style::NONE);
+        }
+    };
+    if c {
+        b.line(
+            0,
+            if s.key_done {
+                t::Z_TITLE_AGAIN_S
+            } else {
+                t::Z_TITLE_S
+            },
+            Style::NONE,
+        );
+        b.line(0, t::Z_NEXT_S, Style::NONE);
+        numbered(&mut b, 0);
+        b.line(0, &cert, Style::NONE);
+        b.hex(2, &fp);
+        b.para(0, never, Style::NONE);
+        b.item(0, t::B_RESTART_NOW, Style::NONE);
+        b.item(0, t::B_SHOW_STEPS, Style::NONE);
+        return b.finish(title, footers, true, false);
+    }
+    b.heading(if s.key_done {
+        t::Z_TITLE_AGAIN
+    } else {
+        t::Z_TITLE
+    });
+    b.para(2, t::Z_WHAT, Style::NONE);
+    b.blank();
+    numbered(&mut b, 2);
+    b.blank();
+    b.line(2, &cert, Style::NONE);
+    b.hex(4, &fp);
+    b.blank();
+    b.para(2, never, Style::NONE);
+    // When the screen is full, the blank row before the buttons goes first.
+    if b.rows.len() + 3 <= b.body {
+        b.blank();
+    }
+    b.item(2, t::B_RESTART_NOW, Style::NONE);
+    b.item(2, t::B_SHOW_STEPS, Style::NONE);
+    b.finish(title, footers, true, false)
+}
+
+fn error(s: &State, kind: ErrKind, disk: DiskState, c: bool) -> Page {
+    let mut b = B::new(s);
+    let name = s.chosen_disk().map_or("", |d| d.name.as_str()).to_string();
+    let (head, why, action, short) = match kind {
+        ErrKind::Check => (t::X_CHECK, t::X_CHECK_WHY, t::X_CHECK_DO, t::X_CHECK_S),
+        ErrKind::Memory => (t::X_MEMORY, t::X_MEMORY_WHY, t::X_MEMORY_DO, t::X_MEMORY_S),
+        ErrKind::Write => (t::X_WRITE, t::X_WRITE_WHY, t::X_WRITE_DO, t::X_WRITE),
+        ErrKind::Protect => (
+            t::X_PROTECT,
+            t::X_PROTECT_WHY,
+            t::X_PROTECT_DO,
+            t::X_PROTECT,
+        ),
+        ErrKind::Mok => (t::X_MOK, t::X_MOK_WHY, t::X_MOK_DO, t::X_MOK_S),
+        ErrKind::Stopped => (
+            t::X_STOPPED,
+            t::X_STOPPED_WHY,
+            t::X_STOPPED_DO,
+            t::X_STOPPED_S,
+        ),
+    };
+    let (title_long, title_short) = match kind {
+        ErrKind::Check => (t::T_RELEASE, t::X_CHECK_T),
+        ErrKind::Mok => (t::T_BOOT_KEY, t::X_MOK_T),
+        _ => (t::T_INSTALLING, t::X_FAILED_T),
+    };
+    let disk_line = match disk {
+        DiskState::Unchanged => Some(t::NO_CHANGE.to_string()),
+        DiskState::Changed => Some(t::x_changed(&name)),
+        DiskState::Maybe => Some(t::x_maybe_changed(&name)),
+        DiskState::Installed => None,
+    };
+    let disk_short = match disk {
+        DiskState::Unchanged => t::NO_CHANGE.to_string(),
+        DiskState::Changed => t::x_changed_s(&name),
+        DiskState::Maybe => t::x_maybe_changed_s(&name),
+        DiskState::Installed => t::X_MOK_DISK_S.to_string(),
+    };
+    let enter = match kind {
+        ErrKind::Check | ErrKind::Memory => t::F_FAIL_S,
+        ErrKind::Mok => t::F_ERROR_TRY_S,
+        _ => t::F_ERROR_AGAIN_S,
+    };
+    let footers = [t::F_ERROR, enter, enter];
+    let bar = titles(title_long, title_short);
+    let slots = items(s);
+    let labels = |i: usize| match slots[i].item {
+        Item::Btn(Btn::Restart) => t::B_RESTART,
+        Item::Btn(Btn::Shell) => t::B_SHELL,
+        Item::Btn(Btn::StartAgain) => t::B_START_AGAIN,
+        _ => t::B_TRY_AGAIN,
+    };
+    if c {
+        b.para(0, short, Style::RED);
+        b.para(0, &disk_short, Style::NONE);
+        for i in 0..slots.len() {
+            b.item(0, labels(i), Style::NONE);
+        }
+        return b.finish(bar, footers, true, false);
+    }
+    b.blank();
+    b.para(2, head, Style::BOLD.with(Style::RED));
+    b.blank();
+    b.para(2, why, Style::NONE);
+    b.blank();
+    if let Some(d) = disk_line.filter(|_| disk != DiskState::Installed) {
+        b.para(2, &d, Style::NONE);
+        b.blank();
+    }
+    b.para(2, action, Style::NONE);
+    b.blank();
+    for i in 0..slots.len() {
+        b.item(2, labels(i), Style::NONE);
+    }
+    b.blank();
+    b.para(2, &t::x_details_hint(t::LOG_PATH), Style::NONE);
+    b.finish(bar, footers, true, false)
+}
+
 // ---------------------------------------------------------------------------------------------
 // Help and details.
 
 fn help_lines(s: &State) -> Vec<String> {
     let mut v: Vec<String> = t::H_KEYS.iter().map(|k| (*k).to_string()).collect();
+    v.push(t::H_FIELD.to_string());
     let extra: &[&str] = match s.screen {
         Screen::Menu => &[t::H_MENU],
         Screen::Release => &[t::H_RELEASE],
         Screen::Disk => &[t::H_DISK],
+        Screen::Installing => &[t::H_INSTALLING],
+        Screen::RecoveryKey => &[t::H_RECOVERY_SERIAL],
+        Screen::BootKey => &[t::H_BLUE],
+        Screen::Done => &[t::H_BLUE, t::Z_MISSED],
         _ => &[],
     };
     v.extend(extra.iter().map(|x| (*x).to_string()));
@@ -643,6 +1178,10 @@ pub fn details_lines(s: &State) -> Vec<String> {
                     }
                 }
             }
+        }
+        Screen::Error(..) => {
+            v.push(t::DT_LOG.to_string());
+            v.extend(s.log.iter().cloned());
         }
         _ => {}
     }

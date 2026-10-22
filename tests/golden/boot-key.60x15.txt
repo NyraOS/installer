@@ -1,0 +1,15 @@
+Nyra OS installer                          8 of 8 · Boot key
+Choose a one-time password.                                 
+> Choose the one-time password                              
+- Use letters and digits only, about 8 of them.             
+- You need it only once. Nothing else uses it.              
+Next, you type the password twice. Nothing shows while you  
+type.                                                       
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+Enter select                                                

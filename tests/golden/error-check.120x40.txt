@@ -1,0 +1,40 @@
+Nyra OS installer                                                                                  2 of 8 · This release
+                                                                                                                        
+  The Nyra OS image didn’t pass the check.                                                                              
+                                                                                                                        
+  Its signature or its digest doesn’t match. This installer’s USB drive or                                              
+  disc may be damaged, or it may have been changed.                                                                     
+                                                                                                                        
+  Nothing on your disks was changed.                                                                                    
+                                                                                                                        
+  What you can do: download the installer again and verify it on your own                                               
+  computer before you write it to the USB drive.                                                                        
+                                                                                                                        
+  > Restart                                                                                                             
+    Open a shell (a command line, for recovery and experts)                                                             
+                                                                                                                        
+  Details: d · Log: /run/nyra-installer/install.log (gone at restart)                                                   
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+Up/Down choose · Enter select · d details · ? help                                                                      
