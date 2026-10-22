@@ -109,3 +109,13 @@ fn huge_size() {
 fn terminal_gone() {
     run("terminal_gone");
 }
+
+#[test]
+fn pasted_burst() {
+    run("pasted_burst");
+}
+
+#[test]
+fn core_dumps_off() {
+    run("core_dumps_off");
+}

@@ -741,3 +741,129 @@ fn the_bars_the_choice_and_the_danger_have_their_styles() {
     // The cursor sits on the active item.
     assert_eq!((f.cursor.1, f.cursor.0), (row, 2));
 }
+
+/// From the administrator form to the review screen again, as after “Back”.
+fn forward_to_review(a: &mut App) {
+    assert_eq!(a.state.screen, Screen::Admin);
+    press(a, &[Key::Down, Key::Down, Key::Down, Key::Down, Key::Enter]);
+    assert_eq!(a.state.screen, Screen::Review);
+}
+
+#[test]
+fn the_typed_name_does_not_survive_back_and_forward() {
+    for back in [
+        vec![Key::Esc],
+        // “Go back”, the button before the one that erases.
+        vec![Key::Enter, Key::Enter],
+    ] {
+        let mut a = app("ok", 80, 24);
+        to_review(&mut a, false);
+        typed(&mut a, "sda");
+        if back.len() == 2 {
+            press(&mut a, &[Key::Enter]); // the focus goes to the erase button
+            press(&mut a, &[Key::Up]); // and back to “Go back”
+            press(&mut a, &back[..1]);
+        } else {
+            // The name is typed, the focus is on the field, and the user goes back.
+            press(&mut a, &back);
+        }
+        assert_eq!(a.state.screen, Screen::Admin);
+        assert!(
+            a.state.field(Fld::Confirm).is_empty(),
+            "wiped when the screen is left"
+        );
+        forward_to_review(&mut a);
+        assert!(a.state.field(Fld::Confirm).is_empty());
+        // Autorepeat: Enter, Enter, Enter.
+        let o = press(&mut a, &[Key::Enter, Key::Enter, Key::Enter]);
+        assert!(o.is_empty(), "{back:?}");
+        assert_eq!(a.state.screen, Screen::Review);
+    }
+}
+
+#[test]
+fn a_pasted_burst_does_not_start_the_erase() {
+    let keys = |text: &str| -> Vec<Event> {
+        text.chars()
+            .map(|c| Event::Key(if c == '\r' { Key::Enter } else { Key::Char(c) }))
+            .collect()
+    };
+    // On the review screen: the name and two Enter in one read.
+    let mut a = app("ok", 80, 24);
+    to_review(&mut a, false);
+    let o = a.dispatch_batch(keys("sda\r\r\r"));
+    assert!(o.is_empty());
+    assert_eq!(a.state.screen, Screen::Review);
+    assert_eq!(items(&a.state)[a.state.focus].item, Item::Btn(Btn::Erase));
+    // The user has seen the button; a key of its own presses it.
+    assert_eq!(a.dispatch_batch(keys("\r")), [Outer::Started]);
+
+    // In the same read as the step that leads to the review screen.
+    let mut a = app("ok", 80, 24);
+    to_review(&mut a, false);
+    press(&mut a, &[Key::Esc]);
+    press(&mut a, &[Key::Down, Key::Down, Key::Down, Key::Down]);
+    let o = a.dispatch_batch(keys("\rsda\r\r"));
+    assert!(o.is_empty());
+    assert_eq!(a.state.screen, Screen::Review);
+    assert!(a.state.field(Fld::Confirm).is_empty());
+}
+
+#[test]
+fn keys_that_come_with_a_screen_change_are_dropped() {
+    let mut a = app("ok", 80, 24);
+    let enter = || Event::Key(Key::Enter);
+    a.dispatch_batch(vec![enter(), enter(), enter(), enter()]);
+    assert_eq!(a.state.screen, Screen::Computer);
+    // Other events are not dropped: a resize in the same read still counts.
+    a.dispatch_batch(vec![enter(), enter(), Event::Resize(60, 20)]);
+    assert_eq!(a.state.screen, Screen::Release);
+    assert_eq!((a.state.w, a.state.h), (60, 20));
+}
+
+#[test]
+fn nothing_typed_is_kept_at_the_menu() {
+    let mut a = app("ok", 80, 24);
+    to_review(&mut a, true);
+    typed(&mut a, "sd");
+    for _ in 0..8 {
+        press(&mut a, &[Key::Esc]);
+    }
+    assert_eq!(a.state.screen, Screen::Menu);
+    assert!(a.state.fields.iter().all(|f| f.is_empty()));
+    // The same when the way back is a failed check.
+    let mut a = app("ok", 80, 24);
+    to_review(&mut a, false);
+    let mut m = a.backend.machine.clone();
+    m.uefi = false;
+    a.dispatch(Event::Machine(Box::new(m)));
+    assert!(matches!(a.state.screen, Screen::Fail(_)));
+    press(&mut a, &[Key::Down, Key::Enter]);
+    assert_eq!(a.state.screen, Screen::Menu);
+    assert!(a.state.fields.iter().all(|f| f.is_empty()));
+}
+
+#[test]
+fn a_disk_is_accepted_only_at_dev_and_its_name() {
+    for bad in [
+        "/dev/sdb",
+        "/dev/sda ",
+        "/dev//sda",
+        "/dev/../dev/sda",
+        "sda",
+        "/dev/sda/",
+        "/DEV/sda",
+        "",
+    ] {
+        let mut a = app("ok", 80, 24);
+        a.backend.machine.disks[0].path = bad.to_string();
+        to_review(&mut a, false);
+        typed(&mut a, "sda");
+        assert!(!a.state.confirmed(), "{bad:?}");
+        let o = press(&mut a, &[Key::Enter, Key::Enter, Key::Tab, Key::Tab]);
+        assert!(!o.contains(&Outer::Started), "{bad:?}");
+        assert!(!items(&a.state)
+            .iter()
+            .any(|s| s.enabled && s.item == Item::Btn(Btn::Erase)));
+    }
+}

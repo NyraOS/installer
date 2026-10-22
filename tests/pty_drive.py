@@ -458,6 +458,32 @@ def test_terminal_gone(binary, golden):
             s.close()
 
 
+def test_pasted_burst(binary, golden):
+    s = Session(binary, "ok")
+    try:
+        to_review(s)
+        # The name and two Enter in one write: the button gets the focus, and that is all.
+        s.send("sda\r\r")
+        s.wait_for("> Erase sda and install")
+        s.settle(0.5)
+        assert "Installing Nyra OS" not in s.screen.text(), s.screen.text()
+        s.keys(ENTER)
+        s.wait_for("Installing Nyra OS")
+    finally:
+        s.close()
+
+
+def test_core_dumps_off(binary, golden):
+    s = Session(binary, "ok")
+    try:
+        s.wait_for("Welcome to Nyra OS.")
+        limits = open("/proc/%d/limits" % s.proc.pid).read()
+        line = [l for l in limits.splitlines() if l.startswith("Max core file size")][0]
+        assert line.split()[4:6] == ["0", "0"], line
+    finally:
+        s.close()
+
+
 def test_not_a_terminal(binary, golden):
     r = subprocess.run([binary, "--fake", "ok"], stdin=subprocess.DEVNULL, capture_output=True, text=True)
     assert r.returncode == 1 and "needs a terminal" in r.stderr, (r.returncode, r.stderr)

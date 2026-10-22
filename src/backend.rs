@@ -121,10 +121,16 @@ pub enum Unlock {
 
 /// A secret that is wiped when dropped. It never prints. The buffer is allocated once at full
 /// size, so typing never leaves copies behind in freed memory.
-#[derive(Default)]
 pub struct Secret(String);
 
 pub const FIELD_CAPACITY: usize = 512;
+
+impl Default for Secret {
+    /// The same as `new`: the buffer is allocated up front, never empty-handed.
+    fn default() -> Secret {
+        Secret::new()
+    }
+}
 
 impl Secret {
     pub fn new() -> Secret {
@@ -469,5 +475,24 @@ impl Fake {
             "scripted backend: no install script is running".to_string(),
             format!("scenario outcome: {}", self.outcome),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_secret_never_moves_while_typing() {
+        // Both ways of making one allocate the whole buffer at once, so no copy is left behind
+        // in freed memory when it grows.
+        for mut s in [Secret::new(), Secret::default()] {
+            s.push('a');
+            let at = s.as_str().as_ptr();
+            for _ in 0..100 {
+                s.push('é');
+            }
+            assert_eq!(s.as_str().as_ptr(), at);
+        }
     }
 }

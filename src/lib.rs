@@ -7,6 +7,7 @@
 
 pub mod app;
 pub mod backend;
+pub mod harden;
 pub mod render;
 pub mod rules;
 pub mod screens;

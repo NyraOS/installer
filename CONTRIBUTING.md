@@ -50,7 +50,8 @@ values as parameters, never pieces joined in code. Only printable ASCII and the 
 
 Each one needs a reason, and `cargo deny` must stay green:
 
-- `rustix`: raw mode, window size and `poll` on the terminal, without `unsafe` code of our own.
+- `rustix`: raw mode, window size and `poll` on the terminal, and the limits that keep a crash from
+  writing passwords to a core file, without `unsafe` code of our own.
 - `zeroize`: wipes passwords from memory with volatile writes the compiler may not remove.
 
 ## Continuous integration

@@ -7,6 +7,7 @@
 
 use nyra_installer::app::{App, Outer};
 use nyra_installer::backend::{Fake, Handoff, SCENARIOS};
+use nyra_installer::harden;
 use nyra_installer::render::{paint, Frame};
 use nyra_installer::screens::frame;
 use nyra_installer::state::Event;
@@ -36,6 +37,14 @@ fn main() -> ExitCode {
         let _ = writeln!(err, "Scenarios: {}", SCENARIOS.join(", "));
         return ExitCode::from(2);
     };
+    // Before anything is typed: a crash must not leave the passwords in a core file.
+    if let Err(e) = harden::disable_core_dumps() {
+        let _ = writeln!(
+            std::io::stderr(),
+            "The installer could not protect its memory ({e})."
+        );
+        return ExitCode::from(1);
+    }
     let caps = Caps::from_env(|k| std::env::var(k).ok());
     let term = match Term::open() {
         Ok(t) => t,
@@ -134,8 +143,8 @@ fn run(app: &mut App, term: &Term, caps: Caps) -> String {
                 }
             }
         }
-        for ev in events {
-            for outer in app.dispatch(ev) {
+        {
+            for outer in app.dispatch_batch(events) {
                 match outer {
                     Outer::Started => {
                         started = Some(Instant::now());

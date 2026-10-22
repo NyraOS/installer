@@ -4,7 +4,7 @@
 //! answers back into events. What needs the real terminal or the real machine is handed on.
 
 use crate::backend::{Fake, Handoff};
-use crate::state::{update, Effect, Event, Screen, State};
+use crate::state::{items, update, Btn, Effect, Event, Item, Screen, State};
 
 /// What only the program around the app can do.
 #[derive(Debug, PartialEq, Eq)]
@@ -69,6 +69,30 @@ impl App {
             }
         }
         outer
+    }
+
+    /// The events that came in with one read of the terminal. Once a key has changed the screen,
+    /// or has put the focus on the button that erases, the keys that came with it are dropped: a
+    /// pasted burst or a key held down never goes further than the user has seen.
+    pub fn dispatch_batch(&mut self, events: Vec<Event>) -> Vec<Outer> {
+        let mut outer = Vec::new();
+        let mut flush = false;
+        for ev in events {
+            if flush && matches!(ev, Event::Key(_)) {
+                continue;
+            }
+            let before = self.mark();
+            outer.append(&mut self.dispatch(ev));
+            flush |= self.mark() != before;
+        }
+        outer
+    }
+
+    /// What the user sees change: the screen, and whether the erase button has the focus.
+    fn mark(&self) -> (Screen, bool) {
+        let on_erase =
+            items(&self.state).get(self.state.focus).map(|x| x.item) == Some(Item::Btn(Btn::Erase));
+        (self.state.screen, on_erase)
     }
 
     /// Delivers every event the script has ready, without waiting; a handoff is answered at once.

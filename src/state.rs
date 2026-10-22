@@ -241,10 +241,14 @@ impl State {
         self.disk.and_then(|i| self.machine.as_ref()?.disks.get(i))
     }
 
-    /// The typed name equals the chosen disk’s name, exactly.
+    /// The typed name equals the chosen disk’s name, exactly, and the disk’s path is `/dev/` and
+    /// that name, nothing else.
     pub fn confirmed(&self) -> bool {
-        self.chosen_disk()
-            .is_some_and(|d| d.eligible && self.field(Fld::Confirm).as_str() == d.name)
+        self.chosen_disk().is_some_and(|d| {
+            d.eligible
+                && d.path == format!("/dev/{}", d.name)
+                && self.field(Fld::Confirm).as_str() == d.name
+        })
     }
 
     fn wipe(&mut self) {
@@ -411,6 +415,15 @@ fn has_details(s: &State) -> bool {
 // Moving between screens.
 
 fn goto(s: &mut State, screen: Screen) {
+    // What was typed to confirm the erase belongs to one visit of the review screen: it is gone
+    // when the screen is entered and when it is left. Nothing typed earlier can be pressed later.
+    if screen == Screen::Review || s.screen == Screen::Review {
+        s.field_mut(Fld::Confirm).clear();
+    }
+    // Back at the menu, nothing typed is kept.
+    if screen == Screen::Menu {
+        s.wipe();
+    }
     s.screen = screen;
     s.overlay = Overlay::None;
     s.scroll = 0;
