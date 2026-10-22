@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+[package]
+name = "nyra-installer"
+version = "0.1.0"
+edition = "2021"
+# The Rust in Debian 13 (trixie).
+rust-version = "1.85"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/NyraOS/installer"
+description = "A full-screen text installer for Nyra OS"
+
+[profile.release]
+# A small binary: the installer is on the ISO.
+lto = true
+codegen-units = 1
+strip = true
