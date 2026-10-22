@@ -11,6 +11,7 @@ what="${STUB:-ok}"
 
 case "${1:-}" in
   check)
+    [ -z "${STUB_DIR:-}" ] || ls "/proc/$$/fd" > "$STUB_DIR/check-fds"
     case "$what" in
       check-fails) echo "nyra-install: the tree is not the release it says" >&2; exit 1 ;;
       check-garbage) echo "this is not json"; exit 0 ;;

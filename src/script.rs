@@ -9,8 +9,8 @@
 //! terminal for that time and never sees what is typed or shown there.
 //!
 //! The descriptors are made without `unsafe` code: the pipes are made here, with their ends in a
-//! range the child can name, and a small `bash` puts them on 3 and 4 and closes the others before
-//! it runs the script.
+//! range the child can name, and a small `bash` puts them on 3 and 4 and closes every other
+//! descriptor above 2, whoever left it open, before it runs the script.
 
 use crate::backend::{
     Answers, Arch, Backend, BackendEvent, FailId, Handoff, Info, Machine, Unusable,
@@ -33,6 +33,22 @@ use std::time::{Duration, Instant};
 pub const DEFAULT_SCRIPT: &str = "/usr/lib/nyra/release/tools/install/nyra-install.sh";
 pub const DEFAULT_LOCK: &str = "/run/nyra-installer.lock";
 pub const DEFAULT_LOG: &str = "/run/nyra-installer/install.log";
+
+/// Closes every descriptor above 2 that this process was given and runs the rest of its arguments.
+/// The program has no `unsafe` code and so no way to mark descriptors it does not know about as
+/// close-on-exec; whatever the service manager or a shell left open stops here, before the script.
+/// The numbers come from `/proc`, so they are digits only.
+pub const SEAL: &str = r#"for f in /proc/self/fd/*; do n=${f##*/}; [ "$n" -gt 2 ] && eval "exec $n>&-"; done; exec "$@""#;
+/// The same for `install` and `mok-import`: the first two arguments are the numbers of the pipe ends
+/// that become descriptors 3 and 4, and nothing else above 2 is left.
+const SEAL_PIPES: &str = r#"exec 3>&"$1" 4<&"$2" || exit 125; for f in /proc/self/fd/*; do n=${f##*/}; [ "$n" -gt 4 ] && eval "exec $n>&-"; done; shift 2; exec "$@""#;
+
+/// A command that runs `program` with nothing but descriptors 0, 1 and 2.
+pub fn sealed(program: impl AsRef<std::ffi::OsStr>) -> Command {
+    let mut c = Command::new("/bin/bash");
+    c.arg("-c").arg(SEAL).arg("nyra-installer").arg(program);
+    c
+}
 
 /// `check` and `disks` are quick. A script that takes longer is stuck.
 const CAPTURE_TIME: Duration = Duration::from_secs(60);
@@ -196,7 +212,7 @@ impl Script {
 
     /// Runs a subcommand that prints JSON and nothing else, and gives what it printed.
     fn capture(&mut self, sub: &str) -> Result<String, Unusable> {
-        let mut child = match Command::new(&self.cfg.script)
+        let mut child = match sealed(&self.cfg.script)
             .arg(sub)
             .envs(self.cfg.env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::null())
@@ -258,8 +274,7 @@ impl Script {
         let raw = |fd: &OwnedFd| rustix::fd::AsRawFd::as_raw_fd(fd);
         let child = Command::new("/bin/bash")
             .arg("-c")
-            // The two numbers are ours, digits only: `eval` closes the descriptors they name.
-            .arg(r#"exec 3>&"$1" 4<&"$2" || exit 125; eval "exec $1>&- $2<&-"; shift 2; exec "$@""#)
+            .arg(SEAL_PIPES)
             .envs(self.cfg.env.iter().map(|(k, v)| (k, v)))
             .arg("nyra-installer")
             .arg(raw(&ev_w).to_string())

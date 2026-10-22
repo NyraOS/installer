@@ -13,7 +13,7 @@ use nyra_installer::backend::{Backend, Fake, Handoff, SCENARIOS};
 use nyra_installer::harden;
 use nyra_installer::render::{paint, Frame};
 use nyra_installer::screens::frame;
-use nyra_installer::script::{Config, Script};
+use nyra_installer::script::{sealed, Config, Script};
 use nyra_installer::state::Event;
 use nyra_installer::term::{wait_for, write, Caps, Key, Parser, Term};
 use nyra_installer::texts;
@@ -301,9 +301,9 @@ fn shell(term: &Term, painted: &mut Option<Frame>) {
     let mut out = std::io::stdout();
     let _ = writeln!(out, "{}", texts::SHELL_WARNING);
     let _ = out.flush();
-    let ran = ["/bin/bash", "/bin/sh"]
-        .iter()
-        .any(|sh| Command::new(sh).arg("-i").status().is_ok());
+    // Without the descriptors the installer was given, if `bash` can do that; else as it is.
+    let ran = sealed("/bin/bash").arg("-i").status().is_ok()
+        || Command::new("/bin/sh").arg("-i").status().is_ok();
     if !ran {
         let _ = writeln!(out, "{}", texts::SHELL_FAILED);
         let _ = out.flush();

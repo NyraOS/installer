@@ -169,6 +169,53 @@ fn a_whole_installation() {
         .contains(PW));
 }
 
+/// The numbers of the descriptors a stand-in script saw, without its own: the terminal, the pipes.
+fn fds(dir: &Dir, file: &str) -> Vec<String> {
+    dir.read(file)
+        .split_whitespace()
+        .map(str::to_string)
+        .collect()
+}
+
+#[test]
+fn descriptors_the_installer_was_given_do_not_reach_the_script() {
+    let _serial = serial();
+    // Whatever a service manager or a shell leaves open: a descriptor without close-on-exec.
+    let leaked: Vec<rustix::fd::OwnedFd> = (0..12)
+        .map(|_| rustix::io::dup(rustix::stdio::stdin()).unwrap())
+        .collect();
+    let numbers: Vec<String> = leaked
+        .iter()
+        .map(rustix::fd::AsRawFd::as_raw_fd)
+        // 3 and 4 are the script’s own pipes.
+        .filter(|n| *n > 4)
+        .map(|n| n.to_string())
+        .collect();
+    assert!(!numbers.is_empty());
+    let dir = Dir::new("leaked");
+    let mut a = app(&dir, "ok");
+    // `check` and `disks` ran in `new` and in the first step.
+    install(&mut a);
+    pump(&mut a, ended);
+    assert_eq!(a.state.screen, Screen::Done);
+    for file in ["check-fds", "fds"] {
+        let seen = fds(&dir, file);
+        assert!(!seen.is_empty(), "{file}");
+        for n in &numbers {
+            assert!(
+                !seen.contains(n),
+                "{file}: descriptor {n} reached the script"
+            );
+        }
+        assert!(
+            seen.iter()
+                .all(|f| ["0", "1", "2", "3", "4", "255"].contains(&f.as_str())),
+            "{file}: {seen:?}"
+        );
+    }
+    drop(leaked);
+}
+
 #[test]
 fn failures_are_told_as_the_script_tells_them() {
     let _serial = serial();
