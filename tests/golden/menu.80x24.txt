@@ -1,0 +1,24 @@
+Nyra OS installer                                     Version 2026.10.7 · x86_64
+                                                                                
+  Welcome to Nyra OS.                                                           
+                                                                                
+  This installs Nyra OS on this computer. It doesn’t need an internet           
+  connection.                                                                   
+                                                                                
+  > Install Nyra OS                                                             
+    Register the Secure Boot key again                                          
+    Open a shell (a command line, for recovery and experts)                     
+    Restart                                                                     
+    Power off                                                                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  Installs Nyra OS on one disk. Nothing is erased until you confirm.            
+Up/Down choose · Enter select · ? help                                          

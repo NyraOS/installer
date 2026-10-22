@@ -1,0 +1,4 @@
+Nyra OS installer      1 of 8 · Computer
+[--] No TPM. A password will do.        
+> Continue                              
+Up/Down choose · Enter select           

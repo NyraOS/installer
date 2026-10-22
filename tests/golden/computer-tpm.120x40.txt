@@ -1,0 +1,40 @@
+Nyra OS installer                                                                                 1 of 8 · This computer
+                                                                                                                        
+  Checking this computer                                                                                                
+                                                                                                                        
+  [ok] Started in UEFI mode                                                                                             
+  [ok] Secure Boot is on                                                                                                
+  [ok] TPM found (a security chip, used to unlock the disk)                                                             
+  [ok] Memory: 8.0 GiB (the installer needs at least 6 GiB)                                                             
+  [ok] Disks found: 2                                                                                                   
+                                                                                                                        
+  This computer is ready. No internet connection is needed.                                                             
+                                                                                                                        
+  > Continue                                                                                                            
+    Restart                                                                                                             
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+Up/Down choose · Enter select · d details · ? help                                                                      

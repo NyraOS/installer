@@ -1,0 +1,40 @@
+Nyra OS installer                                                                                 1 of 8 · This computer
+                                                                                                                        
+  Secure Boot is off.                                                                                                   
+                                                                                                                        
+  Nyra OS needs Secure Boot. It protects the disk and checks the files that                                             
+  Nyra OS starts from.                                                                                                  
+                                                                                                                        
+  What you can do: restart, open your computer’s firmware settings (often                                               
+  by pressing Del, F2 or Esc as it starts) and turn Secure Boot on. Then                                                
+  start this installer again.                                                                                           
+                                                                                                                        
+  Nothing on your disks was changed.                                                                                    
+                                                                                                                        
+  > Restart                                                                                                             
+    Back to the menu                                                                                                    
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+Up/Down choose · Enter select · d details · ? help                                                                      

@@ -1,0 +1,15 @@
+Nyra OS installer                         Secure Boot is off
+Turn Secure Boot on in the firmware.                        
+Nothing on your disks was changed.                          
+> Restart                                                   
+  Back to the menu                                          
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+Enter: restart · d details                                  

@@ -1,0 +1,40 @@
+Nyra OS installer                                                                                          3 of 8 · Disk
+                                                                                                                        
+  Choose the disk for Nyra OS                                                                                           
+                                                                                                                        
+  Nothing is erased yet. You confirm at the end.                                                                        
+                                                                                                                        
+      Disk       Size     Model                  On the disk                                                            
+    > sda        477 GB   Samsung SSD 870 EVO    Windows, 3 partitions                                                  
+      nvme0n1    1.0 TB   WD Black SN850         Empty                                                                  
+                                                                                                                        
+    Not available                                                                                                       
+      sdb        29 GB    USB DISK 3.0           You started from this disk                                             
+                                                                                                                        
+    On sda                                                                                                              
+      1   EFI System          260 MB   FAT32                                                                            
+      2   Microsoft reserved   16 MB                                                                                    
+      3   Windows (C:)        476 GB   NTFS                                                                             
+                                                                                                                        
+    Windows is on this disk. Installing Nyra OS here removes it.                                                        
+    Other disks are not touched.                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+Up/Down choose · Enter continue · Esc back · d details · ? help                                                         
