@@ -299,7 +299,7 @@ impl State {
         if !self.confirmed() {
             return None;
         }
-        let take = |s: &mut State, f: Fld| std::mem::replace(s.field_mut(f), Secret::new());
+        let take = |s: &mut State, f: Fld| std::mem::take(s.field_mut(f));
         let disk_password = (self.unlock == Unlock::Password).then(|| take(self, Fld::DiskPw));
         let admin_password = take(self, Fld::AdminPw);
         let admin_name = self.field(Fld::Name).as_str().to_string();
