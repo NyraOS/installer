@@ -77,7 +77,7 @@ class Screen:
 
 
 class Session:
-    def __init__(self, binary, scenario, w=80, h=24, env=None, size_report=None, report_size=True):
+    def __init__(self, binary, scenario, w=80, h=24, env=None, size_report=None, screen=None):
         self.master, slave = os.openpty()
         self.set_size(w, h, fd=slave)
         e = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "TERM": "linux", "LANG": "C.UTF-8"}
@@ -86,7 +86,7 @@ class Session:
         self.proc = subprocess.Popen([binary, "--fake", scenario], stdin=slave, stdout=slave, stderr=slave,
                                      env=e, start_new_session=True, close_fds=True)
         os.close(slave)
-        self.screen = Screen(w, h)
+        self.screen = Screen(*(screen or (w, h)))
         self.raw = b""
         self.report = size_report  # answer to the cursor-position request (cols, rows)
         self.pending = b""
@@ -147,7 +147,10 @@ class Session:
         if self.proc.poll() is None:
             self.proc.kill()
         self.proc.wait()
-        os.close(self.master)
+        try:
+            os.close(self.master)
+        except OSError:
+            pass
 
     def wait_exit(self, timeout=5):
         end = time.time() + timeout
@@ -347,6 +350,40 @@ def test_exit_clears_the_screen(binary, golden):
         assert "Power off" in text and "Welcome" not in text, text
     finally:
         s.close()
+
+
+def test_huge_size(binary, golden):
+    # A window of 65535 by 65535 (a made-up answer) is treated as 1000 by 500, not allocated.
+    s = Session(binary, "ok", 65535, 65535, screen=(1000, 500))
+    try:
+        s.wait_for("Welcome to Nyra OS.")
+        assert len(s.screen.lines()[0]) == 1000
+        assert s.proc.poll() is None
+    finally:
+        s.close()
+    s = Session(binary, "ok", 0, 0, size_report=(65535, 65535), screen=(1000, 500))
+    try:
+        s.wait_for("Welcome to Nyra OS.")
+        assert len(s.screen.lines()[0]) == 1000
+    finally:
+        s.close()
+
+
+def test_terminal_gone(binary, golden):
+    # The terminal disappears: the program ends quietly, with success, and does not panic.
+    for keys in ([], [DOWN, DOWN, ENTER]):  # in the menu, and while a shell is open
+        s = Session(binary, "ok")
+        try:
+            s.wait_for("Welcome to Nyra OS.")
+            s.keys(*keys)
+            s.settle()
+            os.close(s.master)
+            end = time.time() + 5
+            while s.proc.poll() is None and time.time() < end:
+                time.sleep(0.05)
+            assert s.proc.poll() == 0, s.proc.poll()
+        finally:
+            s.close()
 
 
 def test_not_a_terminal(binary, golden):

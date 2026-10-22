@@ -31,7 +31,6 @@ pub struct Release {
     pub commit: String,
     pub digest: String,
     pub signer: String,
-    pub cert_name: String,
     pub fingerprint: Vec<u8>,
 }
 
@@ -49,8 +48,6 @@ pub struct Machine {
     /// Running in a virtual machine.
     pub virt: bool,
     pub release: Release,
-    /// Names the system uses; an administrator can’t take them.
-    pub reserved: Vec<String>,
     pub disks: Vec<Disk>,
 }
 
@@ -190,20 +187,12 @@ impl Fake {
                 digest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                     .into(),
                 signer: "nyra-image-signer@nyra-signing-3076.iam.gserviceaccount.com".into(),
-                cert_name: "Nyra OS Secure Boot 2026".into(),
                 fingerprint: vec![
                     0x0B, 0x30, 0x55, 0x7A, 0x9F, 0xC4, 0xE9, 0x0E, 0x33, 0x58, 0x7D, 0xA2, 0xC7,
                     0xEC, 0x11, 0x36, 0x5B, 0x80, 0xA5, 0xCA, 0xEF, 0x14, 0x39, 0x5E, 0x83, 0xA8,
                     0xCD, 0xF2, 0x17, 0x3C, 0x61, 0x86,
                 ],
             },
-            reserved: [
-                "daemon", "bin", "sys", "sync", "games", "man", "lp", "mail", "news", "uucp",
-                "proxy", "www-data", "backup", "list", "irc", "nobody", "sshd", "nyra",
-            ]
-            .iter()
-            .map(|s| (*s).to_string())
-            .collect(),
             disks: vec![sda, nvme, usb],
         };
         if matches!(*name, "no-tpm" | "no-disk") {

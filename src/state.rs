@@ -4,9 +4,9 @@
 //! the state and returns what the outside world has to do. It does no I/O, so tests and the
 //! random-key tests can drive it without a terminal.
 
-use crate::backend::{Arch, Info, Machine, Reason};
+use crate::backend::{Info, Machine, Reason};
 use crate::screens;
-use crate::term::Key;
+use crate::term::{clamp_size, Key};
 
 pub const MIN_W: usize = 40;
 pub const MIN_H: usize = 4;
@@ -99,6 +99,7 @@ pub enum Effect {
 
 impl State {
     pub fn new(info: Info, w: usize, h: usize) -> State {
+        let (w, h) = clamp_size(w, h);
         State {
             info,
             w,
@@ -238,8 +239,7 @@ fn back(s: &mut State) -> Vec<Effect> {
 pub fn update(s: &mut State, ev: Event) -> Vec<Effect> {
     match ev {
         Event::Resize(w, h) => {
-            s.w = w;
-            s.h = h;
+            (s.w, s.h) = clamp_size(w, h);
             settle(s);
             s.overlay_scroll = 0;
             vec![]
@@ -434,8 +434,4 @@ pub fn reason_label(r: Reason) -> String {
         Reason::ReadOnly => t::D_READ_ONLY.to_string(),
         Reason::TooSmall { min_gb } => t::d_too_small(min_gb),
     }
-}
-
-pub fn arch_is_utm(s: &State) -> bool {
-    s.info.arch == Arch::Aarch64 && s.machine.as_ref().is_some_and(|m| m.virt)
 }

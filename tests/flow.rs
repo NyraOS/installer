@@ -43,6 +43,31 @@ fn the_steps_in_order_and_back() {
 }
 
 #[test]
+fn a_made_up_size_is_clamped() {
+    // A terminal can answer 65535 by 65535, or anything: no grid for that size is allocated.
+    for (w, h) in [
+        (65535, 65535),
+        (usize::MAX, usize::MAX),
+        (65535, 24),
+        (80, 65535),
+    ] {
+        let mut a = app("ok", w, h);
+        assert!(a.state.w <= 1000 && a.state.h <= 500);
+        let f = frame(&a.state);
+        assert!(f.grid.w <= 1000 && f.grid.h <= 500);
+        a.dispatch(Event::Resize(w, h));
+        assert!(a.state.w <= 1000 && a.state.h <= 500);
+        press(&mut a, &[Key::Enter, Key::Enter, Key::Enter, Key::Down]);
+        assert!(frame(&a.state)
+            .grid
+            .to_text(true)
+            .contains("Nyra OS installer"));
+    }
+    assert_eq!(nyra_installer::term::clamp_size(65535, 65535), (1000, 500));
+    assert_eq!(nyra_installer::term::clamp_size(80, 24), (80, 24));
+}
+
+#[test]
 fn the_menu_acts() {
     let mut a = app("ok", 80, 24);
     assert_eq!(

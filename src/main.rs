@@ -12,7 +12,7 @@ use nyra_installer::screens::frame;
 use nyra_installer::state::Event;
 use nyra_installer::term::{write, Caps, Key, Parser, Term};
 use nyra_installer::texts;
-use std::io::BufRead;
+use std::io::{BufRead, Write};
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
@@ -26,17 +26,20 @@ fn main() -> ExitCode {
         _ => None,
     };
     let Some(fake) = fake else {
-        eprintln!(
+        // A closed stderr is not worth a panic: write and ignore the result.
+        let mut err = std::io::stderr();
+        let _ = writeln!(
+            err,
             "The installer has only a scripted backend so far. Usage: nyra-installer --fake SCENARIO"
         );
-        eprintln!("Scenarios: {}", SCENARIOS.join(", "));
+        let _ = writeln!(err, "Scenarios: {}", SCENARIOS.join(", "));
         return ExitCode::from(2);
     };
     let caps = Caps::from_env(|k| std::env::var(k).ok());
     let term = match Term::open() {
         Ok(t) => t,
         Err(e) => {
-            eprintln!("{e}");
+            let _ = writeln!(std::io::stderr(), "{e}");
             return ExitCode::from(1);
         }
     };
@@ -44,7 +47,8 @@ fn main() -> ExitCode {
     let mut app = App::new(fake, w, h);
     let farewell = run(&mut app, &term, caps);
     drop(term);
-    println!("{farewell}");
+    // The terminal may be gone by now: nothing here may panic.
+    let _ = writeln!(std::io::stdout(), "{farewell}");
     ExitCode::SUCCESS
 }
 
@@ -115,8 +119,11 @@ fn run(app: &mut App, term: &Term, caps: Caps) -> String {
 /// The terminal goes to somebody else for a while. The scripted backend only prints a line.
 fn hand_over(term: &Term, painted: &mut Option<Frame>) {
     term.suspend();
-    println!("{}", texts::SHELL_WARNING);
-    println!("[scripted] a shell would be here. Press Enter.");
+    // The terminal is back to normal; if it has gone away, the writes fail and that is all.
+    let mut out = std::io::stdout();
+    let _ = writeln!(out, "{}", texts::SHELL_WARNING);
+    let _ = writeln!(out, "[scripted] a shell would be here. Press Enter.");
+    let _ = out.flush();
     let mut line = String::new();
     let _ = std::io::stdin().lock().read_line(&mut line);
     let _ = term.resume();

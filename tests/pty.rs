@@ -89,3 +89,13 @@ fn exit_clears_the_screen() {
 fn not_a_terminal() {
     run("not_a_terminal");
 }
+
+#[test]
+fn huge_size() {
+    run("huge_size");
+}
+
+#[test]
+fn terminal_gone() {
+    run("terminal_gone");
+}

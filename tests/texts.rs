@@ -112,9 +112,6 @@ const FORBIDDEN: &[&str] = &[
     "application",
 ];
 
-/// Texts that the design fixes and that use a word the rules would flag.
-const EXEMPT: &[&str] = &["F_INSTALLING_WAIT"];
-
 fn check_capitals(text: &str) -> Vec<String> {
     let mut bad = Vec::new();
     let mut start = true;
@@ -164,7 +161,7 @@ fn every_text_follows_the_writing_rules() {
         }
         let lower = t.to_lowercase();
         for w in lower.split(|c: char| !c.is_alphanumeric()) {
-            if FORBIDDEN.contains(&w) && !l.name.as_deref().is_some_and(|n| EXEMPT.contains(&n)) {
+            if FORBIDDEN.contains(&w) {
                 bad.push(format!("forbidden word {w:?} in {ctx}"));
             }
         }
