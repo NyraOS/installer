@@ -216,6 +216,15 @@ fn csi(params: &[u8], fin: u8) -> Key {
 
 // ---------------------------------------------------------------------------------------------
 
+/// The largest window the program draws for. A terminal that reports more (or garbage, like
+/// 65535 by 65535) is treated as this big, so that no grid is allocated for a made-up size.
+pub const MAX_W: usize = 1000;
+pub const MAX_H: usize = 500;
+
+pub fn clamp_size(w: usize, h: usize) -> (usize, usize) {
+    (w.min(MAX_W), h.min(MAX_H))
+}
+
 /// What the terminal can show, from the environment.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Caps {
@@ -283,7 +292,7 @@ impl Term {
     /// The size the terminal reports, `None` when it says 0 by 0 (a serial console).
     pub fn size(&self) -> Option<(usize, usize)> {
         let w = tcgetwinsize(stdin()).ok()?;
-        (w.ws_col > 0 && w.ws_row > 0).then_some((w.ws_col as usize, w.ws_row as usize))
+        (w.ws_col > 0 && w.ws_row > 0).then(|| clamp_size(w.ws_col as usize, w.ws_row as usize))
     }
 
     /// Waits for input. `None` is a timeout.
@@ -320,7 +329,7 @@ impl Term {
             parser.feed(&bytes, &mut keys);
             for k in keys.drain(..) {
                 if let Key::Pos(r, c) = k {
-                    return (r > 0 && c > 0).then_some((c as usize, r as usize));
+                    return (r > 0 && c > 0).then(|| clamp_size(c as usize, r as usize));
                 }
             }
             if bytes.is_empty() {

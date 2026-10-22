@@ -10,7 +10,7 @@ use crate::backend::{
 };
 use crate::rules::{self, Problem};
 use crate::screens;
-use crate::term::Key;
+use crate::term::{clamp_size, Key};
 
 pub const MIN_W: usize = 40;
 pub const MIN_H: usize = 4;
@@ -190,6 +190,7 @@ fn secrets() -> [Secret; 6] {
 
 impl State {
     pub fn new(info: Info, w: usize, h: usize) -> State {
+        let (w, h) = clamp_size(w, h);
         State {
             info,
             w,
@@ -494,8 +495,7 @@ fn start_over(s: &mut State) -> Vec<Effect> {
 pub fn update(s: &mut State, ev: Event) -> Vec<Effect> {
     match ev {
         Event::Resize(w, h) => {
-            s.w = w;
-            s.h = h;
+            (s.w, s.h) = clamp_size(w, h);
             settle(s);
             s.overlay_scroll = 0;
             vec![]
