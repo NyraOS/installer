@@ -339,7 +339,7 @@ pub const K_POINTS: [&str; 4] = [
     "Write it down on paper, or take a photo of the screen with your phone.",
     "It is shown only once and saved nowhere on this computer.",
     "Anyone who has it can open the disk. Keep it somewhere safe.",
-    "Then press Enter. Nothing checks what you wrote, so read it twice.",
+    "On the next screen, press Enter when you have written it down. Nothing checks what you wrote, so read it twice.",
 ];
 pub const K_WRITE_S: &str = "Write the next screen down.";
 
