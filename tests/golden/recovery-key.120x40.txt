@@ -8,7 +8,7 @@ Nyra OS installer                                                               
   - Write it down on paper, or take a photo of the screen with your phone.                                              
   - It is shown only once and saved nowhere on this computer.                                                           
   - Anyone who has it can open the disk. Keep it somewhere safe.                                                        
-  - Then you type it back, to check that you copied it right.                                                           
+  - Then press Enter. Nothing checks what you wrote, so read it twice.                                                  
                                                                                                                         
   > Show the recovery key                                                                                               
                                                                                                                         
