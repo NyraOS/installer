@@ -574,7 +574,8 @@ def test_script_install(binary, golden):
         to_review(s)
         start(s, "vda")
         s.wait_for("Your recovery key", 15)
-        # Pressed on the explanation, the key is shown by the script, on the terminal, and typed back.
+        # Pressed on the explanation, the key is shown by the script, on the terminal. Enter says it is
+        # written down; nothing is typed back.
         s.keys(ENTER)
         s.wait_for("RECOVERY KEY: " + KEY)
         assert "Welcome" not in s.screen.text() and "Installing Nyra OS" not in s.screen.text()
@@ -583,13 +584,13 @@ def test_script_install(binary, golden):
         s.keys("\x03", "\x1a", "\x1c", "\x7f\x7f\x7f")
         time.sleep(0.2)
         assert s.proc.poll() is None
-        # The line, and Enters that nobody asked for: the script reads the line, and the Enters wait in
-        # the terminal until the installer has it back. It must not take them for its own keys.
-        s.send(KEY + "\r\r\r\r")
+        # The Enter, and Enters that nobody asked for: the script reads one, and the others wait in the
+        # terminal until the installer has it back. It must not take them for its own keys.
+        s.send("\r\r\r\r")
         s.wait_for("Register the Secure Boot key", 15)
         s.settle(0.5)
         assert "MOK PASSWORD" not in s.screen.text(), s.screen.text()
-        assert stub.read("typed").strip() == KEY
+        assert stub.read("typed") == "\n", "the script was typed something at the prompt"
         # The same for the password of the Secure Boot key. The Done screen has a button that restarts.
         s.keys(ENTER)
         s.wait_for("MOK PASSWORD:")
