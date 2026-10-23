@@ -23,6 +23,10 @@ cargo deny --locked check
 
 The last one needs [cargo-deny](https://github.com/EmbarkStudios/cargo-deny).
 
+## Code rules
+
+The same for people and agents; reviews check them: [AGENTS.md](AGENTS.md), "Code rules".
+
 ## Tests
 
 `cargo test` runs the unit tests and these suites in `tests/`:
