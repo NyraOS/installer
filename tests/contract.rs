@@ -254,10 +254,7 @@ fn to_installing(a: &mut App) {
             a.dispatch(Event::Key(Key::Char(c)));
         }
     };
-    press(
-        a,
-        &[Key::Enter, Key::Enter, Key::Enter, Key::Enter, Key::Enter],
-    );
+    press(a, &[Key::Enter, Key::Enter, Key::Enter, Key::Enter]);
     typed(a, "maria");
     press(a, &[Key::Enter]);
     typed(a, "correct horse 42");

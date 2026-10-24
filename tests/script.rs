@@ -86,7 +86,7 @@ fn answer(a: &mut App<Script>, outer: Vec<Outer>) {
 
 /// Up to the review screen, on the one disk of the stand-in.
 fn to_review(a: &mut App<Script>) {
-    press(a, &[Key::Enter, Key::Enter, Key::Enter, Key::Enter]);
+    press(a, &[Key::Enter, Key::Enter, Key::Enter]);
     assert_eq!(a.state.screen, Screen::Encryption, "the screen");
     press(a, &[Key::Enter]);
     typed(a, "maria");
@@ -294,7 +294,7 @@ fn the_lock_lets_one_installation_run() {
     let mut one = app(&dir, "ok");
     let mut two = app(&dir, "ok");
     press(&mut one, &[Key::Enter]);
-    assert_eq!(one.state.screen, Screen::Computer);
+    assert_eq!(one.state.screen, Screen::Release);
     // The second screen is told, and does not install.
     press(&mut two, &[Key::Enter]);
     assert_eq!(two.state.screen, Screen::Busy);
@@ -307,7 +307,7 @@ fn the_lock_lets_one_installation_run() {
     assert_eq!(two.state.screen, Screen::Menu);
     // Now the second can install, and the first cannot.
     press(&mut two, &[Key::Enter]);
-    assert_eq!(two.state.screen, Screen::Computer);
+    assert_eq!(two.state.screen, Screen::Release);
     press(&mut one, &[Key::Enter]);
     assert_eq!(one.state.screen, Screen::Busy);
 }
@@ -395,7 +395,7 @@ fn control_characters_of_a_disk_do_not_reach_the_screen() {
     let _serial = serial();
     let dir = Dir::new("control-disk");
     let mut a = app(&dir, "disks-control");
-    press(&mut a, &[Key::Enter, Key::Enter, Key::Enter, Key::Enter]);
+    press(&mut a, &[Key::Enter, Key::Enter, Key::Enter]);
     let model = &a.state.machine.as_ref().unwrap().disks[0].model;
     assert!(
         !model.chars().any(|c| c.is_control() || c == '\u{202e}'),

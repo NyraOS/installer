@@ -1,4 +1,4 @@
-Nyra OS installer                              8 of 8 · Done
+Nyra OS installer                              7 of 7 · Done
 Nyra OS is installed.                                       
 Next: the blue screen. Down: steps                          
 1. In UTM, remove the installer disc: open the CD/DVD       

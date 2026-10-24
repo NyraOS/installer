@@ -1,4 +1,4 @@
-Nyra OS installer                          8 of 8 · Boot key
+Nyra OS installer                          7 of 7 · Boot key
 Write the next screen down.                                 
 > Show the one-time password                                
 - It is 10 lowercase letters and digits, shown in two       
@@ -7,7 +7,7 @@ Write the next screen down.
 - You need it only once. Nothing else uses it.              
 On the next screen, press Enter when you have written it    
 down. You type it later, on the blue screen, without the    
-dash.                                                       
+dash and with Caps Lock off.                                
                                                             
                                                             
                                                             

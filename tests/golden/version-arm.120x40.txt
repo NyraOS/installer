@@ -1,6 +1,8 @@
-Nyra OS installer                                                                                  2 of 8 · This release
+Nyra OS installer                                                                                       1 of 7 · Version
                                                                                                                         
-  You are installing this release                                                                                       
+  [--] No TPM (security chip) found. The disk will unlock with a password.                                              
+                                                                                                                        
+  This is the version you are installing                                                                                
                                                                                                                         
   Version         2026.10.7                                                                                             
   Commit          0123456789abcdef0123456789abcdef01234567                                                              
@@ -11,6 +13,8 @@ Nyra OS installer                                                               
   Certificate fingerprint (SHA-256)                                                                                     
     0B:30:55:7A:9F:C4:E9:0E:33:58:7D:A2:C7:EC:11:36                                                                     
     5B:80:A5:CA:EF:14:39:5E:83:A8:CD:F2:17:3C:61:86                                                                     
+                                                                                                                        
+  This version is for testing (channel “dev”).                                                                          
                                                                                                                         
   Compare these values with the release page on github.com, opened on                                                   
   another device. If anything is different, stop here.                                                                  
@@ -33,8 +37,4 @@ Nyra OS installer                                                               
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-Up/Down choose · Enter select · Esc back · ? help                                                                       
+Up/Down choose · Enter select · Esc back · d details · ? help                                                           

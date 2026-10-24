@@ -86,6 +86,8 @@ const ALLOWED_CAPITALS: &[&str] = &[
     "F2",
     "F1",
     "Enter",
+    "Caps",
+    "Lock",
     "Tab",
     "Up/Down",
     "PgUp/PgDn",
@@ -254,7 +256,6 @@ fn screens() -> Vec<Screen> {
     vec![
         Screen::Menu,
         Screen::Busy,
-        Screen::Computer,
         Screen::Fail(Failure::Bios),
         Screen::Fail(Failure::SecureBoot),
         Screen::Fail(Failure::ShimChecks),

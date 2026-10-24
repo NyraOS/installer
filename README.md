@@ -31,8 +31,8 @@ Keys: Up and Down choose, Tab and Shift-Tab move between fields, Enter selects, 
 shows help (F1 inside a text field, where `?` is a character), `d` shows details where the bottom
 line offers them, Ctrl-L draws the screen again and measures its size again.
 
-All the screens are here: the start menu, the check of the computer (and a screen for each check
-that can fail), the release page, the disk list, the choice of how the disk unlocks, the disk
+All the screens are here: the start menu, the page with the check of the computer and the version (and a
+screen for each check that can fail), the disk list, the choice of how the disk unlocks, the disk
 password and the administrator, the final review where the name of the disk is typed to confirm the
 erase, the installation, the recovery key and the Secure Boot key (the terminal is handed to the
 script for both: the installer never sees the recovery key or the password of the key), the last page that explains the blue screen, and a screen for each way an

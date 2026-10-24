@@ -179,9 +179,7 @@ ENTER, DOWN, UP, TAB, ESC = "\r", "\x1b[B", "\x1b[A", "\t", "\x1b"
 def to_review(s, password=False):
     s.wait_for("Welcome to Nyra OS.")
     s.keys(ENTER)
-    s.wait_for("Checking this computer")
-    s.keys(ENTER)
-    s.wait_for("You are installing this release")
+    s.wait_for("This is the version you are installing")
     s.keys(ENTER)
     s.wait_for("Choose the disk for Nyra OS")
     s.keys(ENTER)
@@ -345,7 +343,7 @@ def test_keys(binary, golden):
     try:
         s.wait_for("Welcome to Nyra OS.")
         s.keys(ENTER)
-        s.wait_for("Checking this computer")
+        s.wait_for("This is the version you are installing")
         s.keys(ESC)  # alone: back after a short wait
         s.wait_for("Welcome to Nyra OS.")
         s.keys(DOWN)
@@ -671,7 +669,7 @@ def test_script_busy(binary, golden):
         one.wait_for("Welcome to Nyra OS.")
         two.wait_for("Welcome to Nyra OS.")
         one.keys(ENTER)
-        one.wait_for("Checking this computer")
+        one.wait_for("This is the version you are installing")
         two.keys(ENTER)
         two.wait_for("The installation is running on another screen.")
         one.keys(ESC)

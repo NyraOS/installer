@@ -1,4 +1,4 @@
-Nyra OS installer    7 of 8 · Installing
+Nyra OS installer    6 of 7 · Installing
 [..] Preparing the disk (2 of 5)        
 Don’t turn off the computer.            
 Please wait                             

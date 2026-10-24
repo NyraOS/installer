@@ -385,7 +385,6 @@ fn random_keys_keep_the_promises() {
     // The walk got to every kind of screen, not just the first few.
     for want in [
         "Menu",
-        "Computer",
         "Release",
         "Disk",
         "Encryption",

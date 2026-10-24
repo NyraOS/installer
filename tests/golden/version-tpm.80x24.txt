@@ -1,6 +1,8 @@
-Nyra OS installer                                          2 of 8 · This release
+Nyra OS installer                                               1 of 7 · Version
                                                                                 
-  You are installing this release                                               
+  [ok] This computer is ready.                                                  
+                                                                                
+  This is the version you are installing                                        
                                                                                 
   Version         2026.10.7                                                     
   Commit          0123456789abcdef0123456789abcdef01234567                      
@@ -19,6 +21,4 @@ Nyra OS installer                                          2 of 8 · This releas
     They don’t match. Restart                                                   
                                                                                 
                                                                                 
-                                                                                
-                                                                                
-Up/Down choose · Enter select · Esc back · ? help                               
+Up/Down choose · Enter select · Esc back · d details · ? help                   

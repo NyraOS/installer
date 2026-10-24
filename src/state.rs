@@ -51,8 +51,8 @@ pub enum Screen {
     Menu,
     /// Another installer on this machine has the right to install.
     Busy,
-    Computer,
     Fail(Failure),
+    /// The computer check (one line) and the version, on one page: nothing to type, only to compare.
     Release,
     Disk,
     Encryption,
@@ -368,7 +368,6 @@ pub fn items(s: &State) -> Vec<Slot> {
         .map(b)
         .to_vec(),
         Screen::Busy => vec![b(Btn::BackToMenu)],
-        Screen::Computer => vec![b(Btn::Continue), b(Btn::Restart)],
         Screen::Fail(_) => vec![b(Btn::Restart), b(Btn::BackToMenu)],
         Screen::Release => vec![b(Btn::Match), b(Btn::NoMatch)],
         Screen::Disk => s
@@ -423,7 +422,7 @@ pub fn items(s: &State) -> Vec<Slot> {
 fn has_details(s: &State) -> bool {
     matches!(
         s.screen,
-        Screen::Computer | Screen::Fail(_) | Screen::Disk | Screen::Error(..)
+        Screen::Release | Screen::Fail(_) | Screen::Disk | Screen::Error(..)
     )
 }
 
@@ -489,8 +488,7 @@ fn reveal(s: &mut State, index: usize) {
 
 fn back(s: &mut State) -> Vec<Effect> {
     let screen = match s.screen {
-        Screen::Computer | Screen::Fail(_) | Screen::Busy => Screen::Menu,
-        Screen::Release => Screen::Computer,
+        Screen::Release | Screen::Fail(_) | Screen::Busy => Screen::Menu,
         Screen::Disk => Screen::Release,
         Screen::Encryption => Screen::Disk,
         Screen::DiskPassword => Screen::Encryption,
@@ -519,7 +517,7 @@ fn start_over(s: &mut State) -> Vec<Effect> {
     s.handed_off = false;
     s.wipe();
     s.disk = None;
-    goto(s, Screen::Computer);
+    goto(s, Screen::Release);
     vec![Effect::Check]
 }
 
@@ -779,15 +777,11 @@ fn press(s: &mut State, b: Btn) -> Vec<Effect> {
             goto(s, Screen::Menu);
             vec![]
         }
-        (Screen::Computer, Btn::Continue) if s.machine.is_some() => {
-            goto(s, Screen::Release);
-            vec![]
-        }
         (Screen::Fail(_), Btn::BackToMenu) => {
             goto(s, Screen::Menu);
             vec![]
         }
-        (Screen::Release, Btn::Match) => {
+        (Screen::Release, Btn::Match) if s.machine.is_some() => {
             goto(s, Screen::Disk);
             vec![]
         }
@@ -851,7 +845,7 @@ fn locked(s: &mut State, register: bool, got: bool) -> Vec<Effect> {
         goto(s, Screen::BootKey);
         vec![]
     } else {
-        goto(s, Screen::Computer);
+        goto(s, Screen::Release);
         vec![Effect::Check]
     }
 }

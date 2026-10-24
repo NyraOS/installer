@@ -1,11 +1,11 @@
-Nyra OS installer                                                                                        6 of 8 · Review
+Nyra OS installer                                                                                        5 of 7 · Review
                                                                                                                         
   Ready to install                                                                                                      
                                                                                                                         
   Disk            sda · 477 GB · Samsung SSD 870 EVO                                                                    
   Unlock          This computer’s TPM                                                                                   
   Administrator   maria                                                                                                 
-  Release         2026.10.7                                                                                             
+  Version         2026.10.7                                                                                             
                                                                                                                         
   Everything on sda will be erased, including Windows and the files on it.                                              
   This can’t be undone.                                                                                                 

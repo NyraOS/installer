@@ -1,4 +1,4 @@
-Nyra OS installer        6 of 8 · Review
+Nyra OS installer        5 of 7 · Review
 Erase sda? Type its name: sda           
 > Disk name   sd                        
 Tab next · Enter continue · Esc back    

@@ -1,4 +1,4 @@
-Nyra OS installer    4 of 8 · Encryption
+Nyra OS installer    3 of 7 · Encryption
 > Unlock with the TPM (recommended)     
   Opens by itself at startup            
 Up/Down choose · Enter next · Esc back  
