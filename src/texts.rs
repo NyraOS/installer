@@ -119,8 +119,7 @@ pub const BUSY_T: &str = "Busy";
 // ----- Step 1: the computer and the version --------------------------------------------------
 
 pub const C_TITLE: &str = "Checking this computer";
-pub const C_NO_TPM: &str =
-    "No TPM found. You can still install and unlock the disk with a password.";
+pub const C_NO_TPM: &str = "No TPM (security chip) found. The disk will unlock with a password.";
 pub fn c_memory(tenths: u32, need: u32) -> String {
     format!(
         "Memory: {}.{} GiB (the installer needs at least {need} GiB)",
@@ -269,7 +268,7 @@ pub const V_TITLE: &str = "Ready to install";
 pub const V_DISK: &str = "Disk";
 pub const V_UNLOCK: &str = "Unlock";
 pub const V_ADMIN: &str = "Administrator";
-pub const V_RELEASE: &str = "Release";
+pub const V_RELEASE: &str = "Version";
 pub const V_UNLOCK_TPM: &str = "This computer’s TPM";
 pub const V_UNLOCK_PASSWORD: &str = "A password you choose";
 pub fn v_disk(name: &str, size: &str, model: &str) -> String {

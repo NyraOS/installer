@@ -40,6 +40,8 @@ fn cases() -> Vec<Case> {
         c("menu", "ok", Screen::Menu, 0, nothing),
         c("version-tpm", "ok", Screen::Release, 0, nothing),
         c("version-no-tpm", "no-tpm", Screen::Release, 0, nothing),
+        // The longest case: no TPM and the testing line.
+        c("version-arm", "arm", Screen::Release, 0, nothing),
         c(
             "fail-secure-boot",
             "secure-boot-off",

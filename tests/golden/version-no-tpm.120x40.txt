@@ -1,7 +1,6 @@
 Nyra OS installer                                                                                       1 of 7 · Version
                                                                                                                         
-  [--] No TPM found. You can still install and unlock the disk with a                                                   
-       password.                                                                                                        
+  [--] No TPM (security chip) found. The disk will unlock with a password.                                              
                                                                                                                         
   This is the version you are installing                                                                                
                                                                                                                         
@@ -20,6 +19,7 @@ Nyra OS installer                                                               
                                                                                                                         
   > They match. Continue                                                                                                
     They don’t match. Restart                                                                                           
+                                                                                                                        
                                                                                                                         
                                                                                                                         
                                                                                                                         

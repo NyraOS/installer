@@ -1102,3 +1102,17 @@ fn the_script_is_stopped_when_it_is_not_believed() {
         Screen::Error(ErrKind::Stopped, DiskState::Maybe)
     );
 }
+
+#[test]
+fn both_buttons_of_the_version_page_are_on_screen_at_80x24() {
+    for scenario in ["ok", "no-tpm", "arm"] {
+        let mut a = app(scenario, 80, 24);
+        press(&mut a, &[Key::Enter]);
+        assert_eq!(a.state.screen, Screen::Release, "{scenario}");
+        let t = screen_text(&a);
+        assert!(
+            t.contains("They match. Continue") && t.contains("They don’t match. Restart"),
+            "{scenario}\n{t}"
+        );
+    }
+}
