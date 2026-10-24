@@ -286,7 +286,6 @@ pub fn page(s: &State) -> Page {
     match s.screen {
         Screen::Menu => menu(s, c),
         Screen::Busy => busy(s, c),
-        Screen::Computer => computer(s, c),
         Screen::Fail(f) => fail(s, f, c),
         Screen::Release => release(s, c),
         Screen::Disk => disk(s, c),
@@ -367,48 +366,13 @@ fn tagged(b: &mut B, tag: &str, st: Style, text: &str) {
     }
 }
 
-fn computer(s: &State, c: bool) -> Page {
-    let mut b = B::new(s);
-    let title = titles(t::T_COMPUTER, t::T_COMPUTER_S);
-    let footers = [t::F_COMPUTER, t::F_MENU_S, t::F_MENU_S];
-    let Some(m) = &s.machine else {
-        b.heading(t::C_TITLE);
-        return b.finish(title, footers, false, false);
-    };
-    if c {
-        let (tag, st, text) = if m.tpm {
-            ("[ok]", Style::GREEN, t::c_all_passed(5))
-        } else {
-            ("[--]", Style::YELLOW, t::C_NO_TPM_S.to_string())
-        };
-        b.rows.push(vec![
-            (st, tag.to_string()),
-            (Style::NONE, format!(" {text}")),
-        ]);
-        b.item(0, t::B_CONTINUE, Style::NONE);
-        b.item(0, t::B_RESTART, Style::NONE);
-        return b.finish(title, footers, false, false);
-    }
-    b.heading(t::C_TITLE);
-    check_row(&mut b, true, t::C_UEFI);
-    check_row(&mut b, true, t::C_SECURE_BOOT);
-    if m.tpm {
-        check_row(&mut b, true, t::C_TPM);
+/// One line about the computer. The checks that failed never get here: they have their own page.
+fn computer_row(b: &mut B, tpm: bool, c: bool) {
+    if tpm {
+        check_row(b, true, t::C_READY);
     } else {
-        check_row(&mut b, false, t::C_NO_TPM);
+        check_row(b, false, if c { t::C_NO_TPM_S } else { t::C_NO_TPM });
     }
-    check_row(&mut b, true, &t::c_memory(m.mem_tenths, m.mem_need_gib));
-    check_row(&mut b, true, &t::c_disks(m.eligible_disks()));
-    b.blank();
-    b.para(
-        2,
-        if m.tpm { t::C_READY_TPM } else { t::C_READY },
-        Style::NONE,
-    );
-    b.blank();
-    b.item(2, t::B_CONTINUE, Style::NONE);
-    b.item(2, t::B_RESTART, Style::NONE);
-    b.finish(title, footers, false, false)
 }
 
 fn busy(s: &State, c: bool) -> Page {
@@ -503,11 +467,12 @@ fn fail(s: &State, f: Failure, c: bool) -> Page {
 
 fn release(s: &State, c: bool) -> Page {
     let mut b = B::new(s);
-    let title = titles(t::T_RELEASE, t::T_RELEASE_S);
+    let title = titles(t::T_VERSION, t::T_VERSION);
     let Some(m) = &s.machine else {
+        b.heading(t::C_TITLE);
         return b.finish(
             title,
-            [t::F_RELEASE, t::F_RELEASE_S, t::F_RELEASE_S],
+            [t::F_VERSION, t::F_VERSION_S, t::F_VERSION_S],
             true,
             false,
         );
@@ -516,6 +481,7 @@ fn release(s: &State, c: bool) -> Page {
     let testing = s.info.arch == Arch::Aarch64;
     if c {
         let w = b.w;
+        computer_row(&mut b, m.tpm, true);
         for text in [
             format!("{} {}", t::R_VERSION, r.version),
             format!("{} {}", t::R_COMMIT, r.commit),
@@ -535,11 +501,13 @@ fn release(s: &State, c: bool) -> Page {
         b.item(0, t::B_NO_MATCH, Style::NONE);
         return b.finish(
             title,
-            [t::F_RELEASE, t::F_RELEASE_S, t::F_RELEASE_S],
+            [t::F_VERSION, t::F_VERSION_S, t::F_VERSION_S],
             true,
             true,
         );
     }
+    b.blank();
+    computer_row(&mut b, m.tpm, false);
     b.heading(t::R_TITLE);
     b.kv(2, 16, t::R_VERSION, &r.version);
     b.kv(2, 16, t::R_COMMIT, &r.commit);
@@ -560,7 +528,7 @@ fn release(s: &State, c: bool) -> Page {
     b.item(2, t::B_NO_MATCH, Style::NONE);
     b.finish(
         title,
-        [t::F_RELEASE, t::F_RELEASE_S, t::F_RELEASE_S],
+        [t::F_VERSION, t::F_VERSION_S, t::F_VERSION_S],
         true,
         false,
     )
@@ -1095,7 +1063,7 @@ fn error(s: &State, kind: ErrKind, disk: DiskState, c: bool) -> Page {
         ),
     };
     let (title_long, title_short) = match kind {
-        ErrKind::Check => (t::T_RELEASE, t::X_CHECK_T),
+        ErrKind::Check => (t::T_VERSION, t::X_CHECK_T),
         ErrKind::Mok => (t::T_BOOT_KEY, t::X_MOK_T),
         _ => (t::T_INSTALLING, t::X_FAILED_T),
     };
@@ -1175,7 +1143,7 @@ fn help_lines(s: &State) -> Vec<String> {
 pub fn details_lines(s: &State) -> Vec<String> {
     let mut v = Vec::new();
     match s.screen {
-        Screen::Computer | Screen::Fail(_) => {
+        Screen::Release | Screen::Fail(_) => {
             if let Some(m) = &s.machine {
                 v.push(t::dt_check(
                     m.uefi,

@@ -1,4 +1,4 @@
-Nyra OS installer                                                                                  2 of 8 · This release
+Nyra OS installer                                                                                       1 of 7 · Version
                                                                                                                         
   The Nyra OS image didn’t pass the check.                                                                              
                                                                                                                         

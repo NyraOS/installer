@@ -44,7 +44,7 @@ const PW: &str = "correct horse 42";
 
 /// From the menu to the review screen, with the TPM and an administrator.
 fn to_review(a: &mut App, password: bool) {
-    press(a, &[Key::Enter, Key::Enter, Key::Enter, Key::Enter]); // menu, computer, release, disk
+    press(a, &[Key::Enter, Key::Enter, Key::Enter]); // menu, version, disk
     assert_eq!(a.state.screen, Screen::Encryption);
     if password {
         press(a, &[Key::Down, Key::Enter]);
@@ -86,7 +86,7 @@ fn a_made_up_size_is_clamped() {
         assert!(f.grid.w <= 1000 && f.grid.h <= 500);
         a.dispatch(Event::Resize(w, h));
         assert!(a.state.w <= 1000 && a.state.h <= 500);
-        press(&mut a, &[Key::Enter, Key::Enter, Key::Enter, Key::Down]);
+        press(&mut a, &[Key::Enter, Key::Enter, Key::Down]);
         assert!(frame(&a.state)
             .grid
             .to_text(true)
@@ -131,10 +131,7 @@ fn happy_path_with_the_tpm() {
 fn password_path_asks_for_the_disk_password() {
     let mut a = app("no-tpm", 80, 24);
     // Without a TPM the password is the only choice, and it has the focus.
-    press(
-        &mut a,
-        &[Key::Enter, Key::Enter, Key::Enter, Key::Enter, Key::Enter],
-    );
+    press(&mut a, &[Key::Enter, Key::Enter, Key::Enter, Key::Enter]);
     assert_eq!(a.state.screen, Screen::DiskPassword);
     // The first Up cannot reach the disabled TPM item.
     press(&mut a, &[Key::Esc]);
@@ -187,7 +184,7 @@ fn going_back_from_the_review_changes_nothing() {
 #[test]
 fn a_disk_that_cannot_be_chosen_is_not_in_the_list() {
     let mut a = app("ok", 80, 24);
-    press(&mut a, &[Key::Enter, Key::Enter, Key::Enter]);
+    press(&mut a, &[Key::Enter, Key::Enter]);
     assert_eq!(a.state.screen, Screen::Disk);
     let disks = a.state.machine.as_ref().unwrap().disks.clone();
     for slot in items(&a.state) {
@@ -204,10 +201,7 @@ fn a_disk_that_cannot_be_chosen_is_not_in_the_list() {
 #[test]
 fn name_and_password_rules_give_messages() {
     let mut a = app("ok", 80, 24);
-    press(
-        &mut a,
-        &[Key::Enter, Key::Enter, Key::Enter, Key::Enter, Key::Enter],
-    );
+    press(&mut a, &[Key::Enter, Key::Enter, Key::Enter, Key::Enter]);
     assert_eq!(a.state.screen, Screen::Admin);
     let go = |a: &mut App| {
         // Focus Continue and press it.
@@ -239,10 +233,7 @@ fn name_and_password_rules_give_messages() {
 #[test]
 fn admin_form_messages() {
     let mut a = app("ok", 80, 24);
-    press(
-        &mut a,
-        &[Key::Enter, Key::Enter, Key::Enter, Key::Enter, Key::Enter],
-    );
+    press(&mut a, &[Key::Enter, Key::Enter, Key::Enter, Key::Enter]);
     let fill = |a: &mut App, name: &str, pw: &str, pw2: &str| {
         for f in [Fld::Name, Fld::AdminPw, Fld::AdminPw2] {
             a.state.fields[f as usize].clear();
@@ -290,10 +281,7 @@ fn admin_form_messages() {
 fn passwords_are_never_drawn() {
     for (w, h) in [(80, 24), (40, 4), (60, 15), (120, 40)] {
         let mut a = app("ok", w, h);
-        press(
-            &mut a,
-            &[Key::Enter, Key::Enter, Key::Enter, Key::Enter, Key::Enter],
-        );
+        press(&mut a, &[Key::Enter, Key::Enter, Key::Enter, Key::Enter]);
         typed(&mut a, "maria");
         press(&mut a, &[Key::Enter]);
         typed(&mut a, "hunter2-hunter2");
@@ -604,10 +592,7 @@ fn help_and_details_open_and_close() {
     assert_eq!(a.state.overlay, Overlay::None);
     // In a text field `?` is a character; F1 opens the help.
     let mut a = app("ok", 80, 24);
-    press(
-        &mut a,
-        &[Key::Enter, Key::Enter, Key::Enter, Key::Enter, Key::Enter],
-    );
+    press(&mut a, &[Key::Enter, Key::Enter, Key::Enter, Key::Enter]);
     press(&mut a, &[Key::Char('?')]);
     assert_eq!(a.state.overlay, Overlay::None);
     assert_eq!(a.state.field(Fld::Name).as_str(), "?");
@@ -633,7 +618,7 @@ fn a_window_that_is_too_small_does_nothing() {
     assert_eq!(a.state.screen, Screen::Menu);
     a.dispatch(Event::Resize(40, 4));
     press(&mut a, &[Key::Enter]);
-    assert_eq!(a.state.screen, Screen::Computer);
+    assert_eq!(a.state.screen, Screen::Release);
 }
 
 #[test]
@@ -678,7 +663,6 @@ fn every_screen_has_one_row_for_each_item() {
             a.state.disk = Some(0);
             for screen in [
                 Screen::Menu,
-                Screen::Computer,
                 Screen::Fail(Failure::NoDisk),
                 Screen::Release,
                 Screen::Disk,
@@ -843,10 +827,10 @@ fn keys_that_come_with_a_screen_change_are_dropped() {
     let mut a = app("ok", 80, 24);
     let enter = || Event::Key(Key::Enter);
     a.dispatch_batch(vec![enter(), enter(), enter(), enter()]);
-    assert_eq!(a.state.screen, Screen::Computer);
+    assert_eq!(a.state.screen, Screen::Release);
     // Other events are not dropped: a resize in the same read still counts.
     a.dispatch_batch(vec![enter(), enter(), Event::Resize(60, 20)]);
-    assert_eq!(a.state.screen, Screen::Release);
+    assert_eq!(a.state.screen, Screen::Disk);
     assert_eq!((a.state.w, a.state.h), (60, 20));
 }
 
@@ -902,14 +886,7 @@ fn disk_password_form_messages() {
     let mut a = app("ok", 80, 24);
     press(
         &mut a,
-        &[
-            Key::Enter,
-            Key::Enter,
-            Key::Enter,
-            Key::Enter,
-            Key::Down,
-            Key::Enter,
-        ],
+        &[Key::Enter, Key::Enter, Key::Enter, Key::Down, Key::Enter],
     );
     assert_eq!(a.state.screen, Screen::DiskPassword);
     let fill = |a: &mut App, pw: &str, pw2: &str| {
@@ -986,14 +963,7 @@ fn going_back_from_the_disk_password_keeps_the_choice() {
     let mut a = app("ok", 80, 24);
     press(
         &mut a,
-        &[
-            Key::Enter,
-            Key::Enter,
-            Key::Enter,
-            Key::Enter,
-            Key::Down,
-            Key::Enter,
-        ],
+        &[Key::Enter, Key::Enter, Key::Enter, Key::Down, Key::Enter],
     );
     assert_eq!(a.state.screen, Screen::DiskPassword);
     press(&mut a, &[Key::Esc]);
@@ -1071,9 +1041,9 @@ fn another_screen_that_is_installing_is_told_and_waited_for() {
     assert_eq!(a.state.screen, Screen::Menu);
     // Nothing happens to a screen that is not waiting.
     press(&mut a, &[Key::Enter]);
-    assert_eq!(a.state.screen, Screen::Computer);
+    assert_eq!(a.state.screen, Screen::Release);
     a.poll_lock();
-    assert_eq!(a.state.screen, Screen::Computer);
+    assert_eq!(a.state.screen, Screen::Release);
 }
 
 #[test]

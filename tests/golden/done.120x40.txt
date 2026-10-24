@@ -1,4 +1,4 @@
-Nyra OS installer                                                                                          8 of 8 · Done
+Nyra OS installer                                                                                          7 of 7 · Done
                                                                                                                         
   Nyra OS is installed                                                                                                  
                                                                                                                         
@@ -11,8 +11,8 @@ Nyra OS installer                                                               
   4. Choose “View key 0” and compare the name and fingerprint with the ones                                             
      below. Then choose “Continue”.                                                                                     
   5. Choose “Continue”, then “Yes”.                                                                                     
-  6. Type the one-time password you wrote down, without the dash. Then                                                  
-     choose “Reboot”.                                                                                                   
+  6. Type the one-time password you wrote down, without the dash and with                                               
+     Caps Lock off. Then choose “Reboot”.                                                                               
                                                                                                                         
   Nyra OS Secure Boot 2026                                                                                              
     0B:30:55:7A:9F:C4:E9:0E:33:58:7D:A2:C7:EC:11:36                                                                     

@@ -1,4 +1,5 @@
-Nyra OS installer                           2 of 8 · Release
+Nyra OS installer                           1 of 7 · Version
+  [ok] This computer is ready.                              
 Version 2026.10.7                                           
 Commit 0123456789abcdef0123456789abcdef01234567             
 Image digest                                                
@@ -11,5 +12,4 @@ Fingerprint (SHA-256)
 5B:80:A5:CA:EF:14:39:5E:83:A8:CD:F2:17:3C:61:86             
 > They match. Continue                                      
   They don’t match. Restart                                 
-                                                            
 Down: read · Enter: continue                                

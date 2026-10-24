@@ -1,0 +1,4 @@
+Nyra OS installer       1 of 7 · Version
+  [--] No TPM. A password will do.      
+Compare the rest: Down (15 more)        
+Down: read · Enter: continue            

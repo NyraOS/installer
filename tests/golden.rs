@@ -38,8 +38,8 @@ fn cases() -> Vec<Case> {
     };
     vec![
         c("menu", "ok", Screen::Menu, 0, nothing),
-        c("computer-tpm", "ok", Screen::Computer, 0, nothing),
-        c("computer-no-tpm", "no-tpm", Screen::Computer, 0, nothing),
+        c("version-tpm", "ok", Screen::Release, 0, nothing),
+        c("version-no-tpm", "no-tpm", Screen::Release, 0, nothing),
         c(
             "fail-secure-boot",
             "secure-boot-off",
@@ -55,7 +55,6 @@ fn cases() -> Vec<Case> {
             0,
             nothing,
         ),
-        c("release", "ok", Screen::Release, 0, nothing),
         c("disk", "ok", Screen::Disk, 0, nothing),
         // Two disks the script could not tell apart are listed, and not available.
         c("disk-twin", "ok", Screen::Disk, 0, |s, _| {

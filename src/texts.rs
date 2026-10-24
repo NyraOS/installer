@@ -15,35 +15,32 @@ pub fn menu_title_short(n: usize, of: usize) -> String {
     format!("Menu {n} of {of}")
 }
 
-// Step names, long and short. The short form is for 40 columns.
-pub const T_COMPUTER: &str = "1 of 8 · This computer";
-pub const T_COMPUTER_S: &str = "1 of 8 · Computer";
-pub const T_RELEASE: &str = "2 of 8 · This release";
-pub const T_RELEASE_S: &str = "2 of 8 · Release";
-pub const T_DISK: &str = "3 of 8 · Disk";
-pub const T_ENCRYPTION: &str = "4 of 8 · Disk encryption";
-pub const T_ENCRYPTION_S: &str = "4 of 8 · Encryption";
-pub const T_PASSWORD: &str = "4 of 8 · Disk password";
-pub const T_PASSWORD_S: &str = "4 of 8 · Password";
-pub const T_ADMIN: &str = "5 of 8 · Administrator";
-pub const T_REVIEW: &str = "6 of 8 · Review";
-pub const T_INSTALLING: &str = "7 of 8 · Installing";
-pub const T_RECOVERY: &str = "7 of 8 · Recovery key";
-pub const T_BOOT_KEY: &str = "8 of 8 · Secure Boot key";
-pub const T_BOOT_KEY_S: &str = "8 of 8 · Boot key";
-pub const T_DONE: &str = "8 of 8 · Done";
+// Step names. Where the 40-column form is different, a second constant has it.
+pub const T_COMPUTER: &str = "1 of 7 · This computer";
+pub const T_VERSION: &str = "1 of 7 · Version";
+pub const T_DISK: &str = "2 of 7 · Disk";
+pub const T_ENCRYPTION: &str = "3 of 7 · Disk encryption";
+pub const T_ENCRYPTION_S: &str = "3 of 7 · Encryption";
+pub const T_PASSWORD: &str = "3 of 7 · Disk password";
+pub const T_PASSWORD_S: &str = "3 of 7 · Password";
+pub const T_ADMIN: &str = "4 of 7 · Administrator";
+pub const T_REVIEW: &str = "5 of 7 · Review";
+pub const T_INSTALLING: &str = "6 of 7 · Installing";
+pub const T_RECOVERY: &str = "6 of 7 · Recovery key";
+pub const T_BOOT_KEY: &str = "7 of 7 · Secure Boot key";
+pub const T_BOOT_KEY_S: &str = "7 of 7 · Boot key";
+pub const T_DONE: &str = "7 of 7 · Done";
 pub const T_HELP: &str = "Help";
 pub const T_DETAILS: &str = "Details";
 
 // Footers: the full line, then the short one for small windows.
 pub const F_MENU: &str = "Up/Down choose · Enter select · ? help";
 pub const F_MENU_S: &str = "Up/Down choose · Enter select";
-pub const F_COMPUTER: &str = "Up/Down choose · Enter select · d details · ? help";
-pub const F_FAIL: &str = F_COMPUTER;
+pub const F_FAIL: &str = "Up/Down choose · Enter select · d details · ? help";
 pub const F_FAIL_S: &str = "Enter: restart · d details";
 pub const F_FAIL_S_MORE: &str = "Enter: restart · d details · Down: more";
-pub const F_RELEASE: &str = "Up/Down choose · Enter select · Esc back · ? help";
-pub const F_RELEASE_S: &str = "Down: read · Enter: continue";
+pub const F_VERSION: &str = "Up/Down choose · Enter select · Esc back · d details · ? help";
+pub const F_VERSION_S: &str = "Down: read · Enter: continue";
 pub const F_DISK: &str = "Up/Down choose · Enter continue · Esc back · d details · ? help";
 pub const F_DISK_S: &str = "Up/Down choose · Enter next · Esc back";
 pub const F_ENCRYPTION: &str = "Up/Down choose · Enter continue · Esc back · ? help";
@@ -119,12 +116,9 @@ pub const BUSY_WHY: &str = "Only one screen can install at a time. When the othe
 pub const BUSY_S: &str = "Installing on another screen.";
 pub const BUSY_T: &str = "Busy";
 
-// ----- Step 1: the computer ------------------------------------------------------------------
+// ----- Step 1: the computer and the version --------------------------------------------------
 
 pub const C_TITLE: &str = "Checking this computer";
-pub const C_UEFI: &str = "Started in UEFI mode";
-pub const C_SECURE_BOOT: &str = "Secure Boot is on";
-pub const C_TPM: &str = "TPM found (a security chip, used to unlock the disk)";
 pub const C_NO_TPM: &str =
     "No TPM found. You can still install and unlock the disk with a password.";
 pub fn c_memory(tenths: u32, need: u32) -> String {
@@ -134,14 +128,7 @@ pub fn c_memory(tenths: u32, need: u32) -> String {
         tenths % 10
     )
 }
-pub fn c_disks(n: usize) -> String {
-    format!("Disks found: {n}")
-}
-pub const C_READY_TPM: &str = "This computer is ready. No internet connection is needed.";
 pub const C_READY: &str = "This computer is ready.";
-pub fn c_all_passed(n: usize) -> String {
-    format!("All {n} checks passed.")
-}
 pub const C_NO_TPM_S: &str = "No TPM. A password will do.";
 
 pub const NO_CHANGE: &str = "Nothing on your disks was changed.";
@@ -181,22 +168,22 @@ pub const FAIL_NO_DISK_DO: &str = "What you can do: check that the disk is conne
 pub const FAIL_NO_DISK_S: &str = "Check that the disk is connected.";
 pub const FAIL_NO_DISK_T: &str = "No disk found";
 
-// ----- Step 2: the release -------------------------------------------------------------------
+// ----- The version (the same step) -----------------------------------------------------------
 
-pub const R_TITLE: &str = "You are installing this release";
+pub const R_TITLE: &str = "This is the version you are installing";
 pub const R_VERSION: &str = "Version";
 pub const R_COMMIT: &str = "Commit";
 pub const R_DIGEST: &str = "Image digest";
 pub const R_SIGNER: &str = "Signed by";
 pub const R_FINGERPRINT: &str = "Certificate fingerprint (SHA-256)";
 pub const R_FINGERPRINT_S: &str = "Fingerprint (SHA-256)";
-pub const R_TESTING: &str = "This release is for testing (channel “dev”).";
+pub const R_TESTING: &str = "This version is for testing (channel “dev”).";
 pub const R_COMPARE: &str = "Compare these values with the release page on github.com, opened on another device. If anything is different, stop here.";
 pub fn r_more(n: usize) -> String {
     format!("Compare the rest: Down ({n} more)")
 }
 
-// ----- Step 3: the disk ----------------------------------------------------------------------
+// ----- Step 2: the disk ----------------------------------------------------------------------
 
 pub const D_TITLE: &str = "Choose the disk for Nyra OS";
 pub const D_NOTHING_YET: &str = "Nothing is erased yet. You confirm at the end.";
@@ -234,7 +221,7 @@ pub fn d_position(n: usize, of: usize) -> String {
     format!("({n} of {of})")
 }
 
-// ----- Step 4: the encryption ----------------------------------------------------------------
+// ----- Step 3: the encryption ----------------------------------------------------------------
 
 pub const E_TITLE: &str = "How should the disk unlock?";
 pub const E_ALWAYS: &str = "Nyra OS always encrypts the disk, so nobody can read it without a key.";
@@ -269,14 +256,14 @@ pub const PROBLEM_NAME_FORM: &str =
 pub const PROBLEM_NAME_RESERVED: &str = "This name is used by the system. Choose another one.";
 pub const PROBLEM_SAME: &str = "The password can’t be the same as the name.";
 
-// ----- Step 5: the administrator -------------------------------------------------------------
+// ----- Step 4: the administrator -------------------------------------------------------------
 
 pub const A_TITLE: &str = "Create the administrator";
 pub const A_WHAT: &str =
     "You use this account to sign in and to change the system. The password can’t be empty.";
 pub const A_RULES: &str = "The name uses lowercase letters, digits, - and _, and starts with a letter. The password needs at least 12 characters.";
 
-// ----- Step 6: review ------------------------------------------------------------------------
+// ----- Step 5: review ------------------------------------------------------------------------
 
 pub const V_TITLE: &str = "Ready to install";
 pub const V_DISK: &str = "Disk";
@@ -304,7 +291,7 @@ pub fn v_erase_s(disk: &str, typed_name: &str) -> String {
     format!("Erase {disk}? Type its name: {typed_name}")
 }
 
-// ----- Step 7: installing --------------------------------------------------------------------
+// ----- Step 6: installing --------------------------------------------------------------------
 
 pub const I_TITLE: &str = "Installing Nyra OS";
 // Each step has a form for waiting and running, and a form for done.
@@ -343,7 +330,7 @@ pub const K_POINTS: [&str; 4] = [
 ];
 pub const K_WRITE_S: &str = "Write the next screen down.";
 
-// ----- Step 8: the Secure Boot key and the end -----------------------------------------------
+// ----- Step 7: the Secure Boot key and the end -----------------------------------------------
 
 pub const O_TITLE: &str = "Register the Secure Boot key";
 pub const O_WHAT: &str = "Nyra OS starts from files signed with a Nyra key. Your computer has to trust that key once. For this the installer makes a one-time password, and you type it on a blue screen right after the restart.";
@@ -352,7 +339,7 @@ pub const O_POINTS: [&str; 3] = [
     "Write it down on paper. It is shown only once.",
     "You need it only once. Nothing else uses it.",
 ];
-pub const O_NEXT: &str = "On the next screen, press Enter when you have written it down. You type it later, on the blue screen, without the dash.";
+pub const O_NEXT: &str = "On the next screen, press Enter when you have written it down. You type it later, on the blue screen, without the dash and with Caps Lock off.";
 pub const O_ONE_TIME_S: &str = "Write the next screen down.";
 
 pub const Z_TITLE: &str = "Nyra OS is installed";
@@ -368,7 +355,7 @@ pub const Z_STEPS: [&str; 5] = [
     "Choose “Enroll MOK”.",
     "Choose “View key 0” and compare the name and fingerprint with the ones below. Then choose “Continue”.",
     "Choose “Continue”, then “Yes”.",
-    "Type the one-time password you wrote down, without the dash. Then choose “Reboot”.",
+    "Type the one-time password you wrote down, without the dash and with Caps Lock off. Then choose “Reboot”.",
 ];
 pub const Z_NEVER: &str = "Never choose “Change Secure Boot state” or “Delete MOK”.";
 pub const Z_NEVER_UTM: &str = "Never choose “Change Secure Boot state” or “Delete MOK”. In UTM, don’t use “Reset UEFI variables”: it erases the key.";
