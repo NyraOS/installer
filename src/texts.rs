@@ -74,7 +74,7 @@ pub const B_BACK_TO_MENU: &str = "Back to the menu";
 pub const B_MATCH: &str = "They match. Continue";
 pub const B_NO_MATCH: &str = "They don’t match. Restart";
 pub const B_SHOW_KEY: &str = "Show the recovery key";
-pub const B_CHOOSE_OTP: &str = "Choose the one-time password";
+pub const B_SHOW_OTP: &str = "Show the one-time password";
 pub const B_RESTART_NOW: &str = "Restart now";
 pub const B_SHOW_STEPS: &str = "Show these steps again";
 pub const B_START_AGAIN: &str = "Start again";
@@ -346,13 +346,14 @@ pub const K_WRITE_S: &str = "Write the next screen down.";
 // ----- Step 8: the Secure Boot key and the end -----------------------------------------------
 
 pub const O_TITLE: &str = "Register the Secure Boot key";
-pub const O_WHAT: &str = "Nyra OS starts from files signed with a Nyra key. Your computer has to trust that key once. For this you choose a one-time password now, and type it on a blue screen right after the restart.";
-pub const O_POINTS: [&str; 2] = [
-    "Use letters and digits only, about 8 of them.",
+pub const O_WHAT: &str = "Nyra OS starts from files signed with a Nyra key. Your computer has to trust that key once. For this the installer makes a one-time password, and you type it on a blue screen right after the restart.";
+pub const O_POINTS: [&str; 3] = [
+    "It is 10 lowercase letters and digits, shown in two groups with a dash between them.",
+    "Write it down on paper. It is shown only once.",
     "You need it only once. Nothing else uses it.",
 ];
-pub const O_NEXT: &str = "Next, you type the password twice. Nothing shows while you type.";
-pub const O_ONE_TIME_S: &str = "Choose a one-time password.";
+pub const O_NEXT: &str = "On the next screen, press Enter when you have written it down. You type it later, on the blue screen, without the dash.";
+pub const O_ONE_TIME_S: &str = "Write the next screen down.";
 
 pub const Z_TITLE: &str = "Nyra OS is installed";
 pub const Z_TITLE_AGAIN: &str = "The Secure Boot key is registered";
@@ -367,7 +368,7 @@ pub const Z_STEPS: [&str; 5] = [
     "Choose “Enroll MOK”.",
     "Choose “View key 0” and compare the name and fingerprint with the ones below. Then choose “Continue”.",
     "Choose “Continue”, then “Yes”.",
-    "Type the one-time password. Then choose “Reboot”.",
+    "Type the one-time password you wrote down, without the dash. Then choose “Reboot”.",
 ];
 pub const Z_NEVER: &str = "Never choose “Change Secure Boot state” or “Delete MOK”.";
 pub const Z_NEVER_UTM: &str = "Never choose “Change Secure Boot state” or “Delete MOK”. In UTM, don’t use “Reset UEFI variables”: it erases the key.";

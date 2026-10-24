@@ -11,5 +11,5 @@ Next: the blue screen. Down: steps
    fingerprint with the ones below. Then choose             
    “Continue”.                                              
 5. Choose “Continue”, then “Yes”.                           
-6. Type the one-time password. Then choose “Reboot”.        
+6. Type the one-time password you wrote down, without the   
 Enter: restart · Down: steps                                
