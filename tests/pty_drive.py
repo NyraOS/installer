@@ -517,7 +517,7 @@ def test_not_a_terminal(binary, golden):
 # does at a handoff.
 
 KEY = "abcd-efgh-ijkl-mnop"
-MOK = "mok-password-1"
+MOK = "abcde-fghjk"
 
 
 class Stub:
@@ -535,7 +535,7 @@ class Stub:
         src = os.path.abspath(os.path.join(golden, "..", "stub", "nyra-install.sh"))
         self.script = os.path.join(self.dir, "nyra-install.sh")
         shutil.copy(src, self.script)
-        conf = {"STUB": scenario, "STUB_DIR": self.dir, "STUB_TTY": "1" if tty else "0", "STUB_KEY": KEY,
+        conf = {"STUB": scenario, "STUB_DIR": self.dir, "STUB_TTY": "1" if tty else "0", "STUB_KEY": KEY, "STUB_MOK": MOK,
                 "STUB_AFTER": "0.3", "STUB_FX": os.path.abspath(os.path.join(golden, "..", "fixtures"))}
         with open(os.path.join(self.dir, "stub.conf"), "w") as f:
             for k, v in conf.items():
@@ -591,15 +591,16 @@ def test_script_install(binary, golden):
         s.settle(0.5)
         assert "MOK PASSWORD" not in s.screen.text(), s.screen.text()
         assert stub.read("typed") == "\n", "the script was typed something at the prompt"
-        # The same for the password of the Secure Boot key. The Done screen has a button that restarts.
+        # The same for the one-time password of the Secure Boot key: shown by the script, Enter says it is
+        # written down, nothing is typed. The Done screen has a button that restarts.
         s.keys(ENTER)
-        s.wait_for("MOK PASSWORD:")
-        s.send(MOK + "\r\r\r\r")
+        s.wait_for("MOK PASSWORD: " + MOK)
+        s.send("\r\r\r\r")
         s.wait_for("Nyra OS is installed", 15)
         s.settle(0.6)
         assert s.proc.poll() is None, "the installer left: a key reached it"
         assert not stub.read("systemctl.log")
-        assert stub.read("typed-mok").strip() == MOK
+        assert stub.read("typed-mok") == "\n", "the script was typed something at the prompt"
         # Nothing secret on the screen, or sent to it by the installer.
         for secret in (KEY, MOK, PW):
             assert secret not in s.screen.text()
@@ -635,8 +636,8 @@ def test_script_failures(binary, golden):
                 s.send(KEY + "\r")
                 s.wait_for("Register the Secure Boot key", 15)
                 s.keys(ENTER)
-                s.wait_for("MOK PASSWORD:")
-                s.send(MOK + "\r")
+                s.wait_for("MOK PASSWORD: " + MOK)
+                s.send("\r")
             s.wait_for(title, 15)
             s.wait_for(disk, 2)
             # The terminal is the installer's again after a failure.

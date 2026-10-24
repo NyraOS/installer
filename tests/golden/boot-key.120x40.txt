@@ -3,18 +3,18 @@ Nyra OS installer                                                               
   Register the Secure Boot key                                                                                          
                                                                                                                         
   Nyra OS starts from files signed with a Nyra key. Your computer has to                                                
-  trust that key once. For this you choose a one-time password now, and                                                 
-  type it on a blue screen right after the restart.                                                                     
+  trust that key once. For this the installer makes a one-time password,                                                
+  and you type it on a blue screen right after the restart.                                                             
                                                                                                                         
-  - Use letters and digits only, about 8 of them.                                                                       
+  - It is 10 lowercase letters and digits, shown in two groups with a dash                                              
+    between them.                                                                                                       
+  - Write it down on paper. It is shown only once.                                                                      
   - You need it only once. Nothing else uses it.                                                                        
                                                                                                                         
-  Next, you type the password twice. Nothing shows while you type.                                                      
+  On the next screen, press Enter when you have written it down. You type                                               
+  it later, on the blue screen, without the dash.                                                                       
                                                                                                                         
-  > Choose the one-time password                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
+  > Show the one-time password                                                                                          
                                                                                                                         
                                                                                                                         
                                                                                                                         

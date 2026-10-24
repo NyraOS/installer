@@ -1,13 +1,13 @@
 Nyra OS installer                          8 of 8 · Boot key
-Choose a one-time password.                                 
-> Choose the one-time password                              
-- Use letters and digits only, about 8 of them.             
+Write the next screen down.                                 
+> Show the one-time password                                
+- It is 10 lowercase letters and digits, shown in two       
+  groups with a dash between them.                          
+- Write it down on paper. It is shown only once.            
 - You need it only once. Nothing else uses it.              
-Next, you type the password twice. Nothing shows while you  
-type.                                                       
-                                                            
-                                                            
-                                                            
+On the next screen, press Enter when you have written it    
+down. You type it later, on the blue screen, without the    
+dash.                                                       
                                                             
                                                             
                                                             

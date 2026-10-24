@@ -997,7 +997,7 @@ fn boot_key(s: &State, c: bool) -> Page {
     let footers = [t::F_HANDOFF, t::F_ENTER_S, t::F_HANDOFF_S];
     if c {
         b.line(0, t::O_ONE_TIME_S, Style::NONE);
-        b.item(0, t::B_CHOOSE_OTP, Style::NONE);
+        b.item(0, t::B_SHOW_OTP, Style::NONE);
         for p in t::O_POINTS {
             b.para_hang(0, 2, &format!("- {p}"), Style::NONE);
         }
@@ -1011,7 +1011,7 @@ fn boot_key(s: &State, c: bool) -> Page {
     b.blank();
     b.para(2, t::O_NEXT, Style::NONE);
     b.blank();
-    b.item(2, t::B_CHOOSE_OTP, Style::NONE);
+    b.item(2, t::B_SHOW_OTP, Style::NONE);
     b.finish(title, footers, false, false)
 }
 

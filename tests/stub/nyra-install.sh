@@ -66,7 +66,7 @@ if [ "$sub" = install ]; then
   printf '%s\n' "$line" > "$STUB_DIR/answers"
 fi
 
-# The terminal, for a handoff: show the key and wait for Enter, as the real script does.
+# The terminal, for a handoff: show the key or the one-time password and wait for Enter, as the real script does.
 handoff() { # handoff ID
   emit "{\"event\":\"handoff\",\"id\":\"$1\"}"
   IFS= read -r -u 4 go || exit 11
@@ -77,7 +77,7 @@ handoff() { # handoff ID
       IFS= read -r typed < /dev/tty
       printf '%s\n' "$typed" > "$STUB_DIR/typed"
     else
-      printf 'MOK PASSWORD: ' > /dev/tty
+      printf 'MOK PASSWORD: %s\nPress Enter when you have written the password down: ' "$STUB_MOK" > /dev/tty
       IFS= read -r typed < /dev/tty
       printf '%s\n' "$typed" > "$STUB_DIR/typed-mok"
     fi
